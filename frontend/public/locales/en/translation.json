@@ -221,6 +221,24 @@
     "empty": "No projects yet",
     "untitled": "Untitled Project"
   },
+  "text": {
+    "title": "Text",
+    "addText": "Add Text",
+    "content": "Content",
+    "fontSize": "Font Size",
+    "fontFamily": "Font",
+    "fontColor": "Color",
+    "fontWeight": "Weight",
+    "textAlign": "Align",
+    "normal": "Normal",
+    "bold": "Bold",
+    "left": "Left",
+    "center": "Center",
+    "right": "Right",
+    "backgroundColor": "Background",
+    "backgroundOpacity": "Background Opacity",
+    "placeholder": "Enter text..."
+  },
   "transition": {
     "title": "Transition",
     "none": "None",

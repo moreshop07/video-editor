@@ -6,6 +6,7 @@ import EffectsPanel from "@/components/editor/panels/EffectsPanel";
 import MusicLibrary from "@/components/audio/MusicLibrary";
 import SoundEffectsLibrary from "@/components/audio/SoundEffectsLibrary";
 import StickerLibrary from "@/components/stickers/StickerLibrary";
+import { TextLibrary } from "@/components/text/TextLibrary";
 
 type SidebarTab =
   | "assets"
@@ -13,7 +14,8 @@ type SidebarTab =
   | "soundEffects"
   | "effects"
   | "stickers"
-  | "subtitles";
+  | "subtitles"
+  | "text";
 
 interface TabConfig {
   key: SidebarTab;
@@ -27,6 +29,7 @@ const tabs: TabConfig[] = [
   { key: "soundEffects", labelKey: "soundEffects", icon: "M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" },
   { key: "effects", labelKey: "effects", icon: "M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" },
   { key: "stickers", labelKey: "stickers", icon: "M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
+  { key: "text", labelKey: "text.title", icon: "M4 6h16M4 12h8m-8 6h16" },
   { key: "subtitles", labelKey: "subtitles", icon: "M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" },
 ];
 
@@ -46,6 +49,8 @@ function SidebarComponent() {
         return <EffectsPanel />;
       case "stickers":
         return <StickerLibrary />;
+      case "text":
+        return <TextLibrary />;
       case "subtitles":
         return <SubtitleEditor />;
       default:

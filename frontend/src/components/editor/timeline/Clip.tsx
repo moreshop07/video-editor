@@ -27,6 +27,7 @@ const CLIP_COLORS: Record<string, string> = {
   image: '#06b6d4',
   subtitle: '#ec4899',
   sticker: '#06b6d4',
+  text: '#f97316',
 };
 
 function ClipComponent({ clip, trackId, pxPerMs, trackLocked }: ClipProps) {

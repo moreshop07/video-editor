@@ -83,6 +83,7 @@ function PropertiesPanelComponent() {
   const isVideoType = track.type === 'video' || track.type === 'sticker';
   const isAudioType =
     track.type === 'audio' || track.type === 'music' || track.type === 'sfx';
+  const isTextType = track.type === 'text';
   const clipFilters = clip.filters ?? DEFAULT_CLIP_FILTERS;
   const activeEffects = clipFilters.effects.filter((e) => e.enabled);
 
@@ -159,6 +160,172 @@ function PropertiesPanelComponent() {
       {track.type === 'sticker' && (
         <div className="flex flex-col gap-3">
           <div className="text-[10px] font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">
+            {t('properties.transform')}
+          </div>
+          <PropertySlider
+            label={t('properties.positionX')}
+            value={clip.positionX ?? 0.5}
+            min={0}
+            max={1}
+            step={0.01}
+            onChange={(v) => handleUpdate('positionX', v)}
+            format={(v) => `${Math.round(v * 100)}%`}
+          />
+          <PropertySlider
+            label={t('properties.positionY')}
+            value={clip.positionY ?? 0.5}
+            min={0}
+            max={1}
+            step={0.01}
+            onChange={(v) => handleUpdate('positionY', v)}
+            format={(v) => `${Math.round(v * 100)}%`}
+          />
+          <PropertySlider
+            label={t('properties.scale')}
+            value={clip.scaleX ?? 1}
+            min={0.1}
+            max={3}
+            step={0.05}
+            onChange={(v) => {
+              handleUpdate('scaleX', v);
+              handleUpdate('scaleY', v);
+            }}
+            format={(v) => `${Math.round(v * 100)}%`}
+          />
+          <PropertySlider
+            label={t('properties.rotation')}
+            value={clip.rotation ?? 0}
+            min={0}
+            max={360}
+            step={1}
+            onChange={(v) => handleUpdate('rotation', v)}
+            format={(v) => `${v}°`}
+          />
+        </div>
+      )}
+
+      {/* Text controls */}
+      {isTextType && (
+        <div className="flex flex-col gap-3">
+          {/* Text content */}
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] text-[var(--color-text-secondary)]">
+              {t('text.content')}
+            </label>
+            <textarea
+              value={clip.textContent ?? ''}
+              onChange={(e) => handleUpdate('textContent', e.target.value)}
+              className="h-20 resize-none rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-primary)]"
+            />
+          </div>
+
+          {/* Font size */}
+          <PropertySlider
+            label={t('text.fontSize')}
+            value={clip.fontSize ?? 48}
+            min={12}
+            max={200}
+            step={1}
+            onChange={(v) => handleUpdate('fontSize', v)}
+            format={(v) => `${v}px`}
+          />
+
+          {/* Font family */}
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] text-[var(--color-text-secondary)]">
+              {t('text.fontFamily')}
+            </label>
+            <select
+              value={clip.fontFamily ?? 'Arial'}
+              onChange={(e) => handleUpdate('fontFamily', e.target.value)}
+              className="rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-primary)]"
+            >
+              <option value="Arial">Arial</option>
+              <option value="Georgia">Georgia</option>
+              <option value="Times New Roman">Times New Roman</option>
+              <option value="Verdana">Verdana</option>
+              <option value="Courier New">Courier New</option>
+              <option value="Impact">Impact</option>
+            </select>
+          </div>
+
+          {/* Font color */}
+          <div className="flex items-center gap-2">
+            <label className="text-[10px] text-[var(--color-text-secondary)]">
+              {t('text.fontColor')}
+            </label>
+            <input
+              type="color"
+              value={clip.fontColor ?? '#FFFFFF'}
+              onChange={(e) => handleUpdate('fontColor', e.target.value)}
+              className="h-6 w-10 cursor-pointer rounded border border-[var(--color-border)]"
+            />
+          </div>
+
+          {/* Font weight */}
+          <div className="flex items-center gap-2">
+            <label className="text-[10px] text-[var(--color-text-secondary)]">
+              {t('text.fontWeight')}
+            </label>
+            <div className="flex gap-1">
+              <button
+                onClick={() => handleUpdate('fontWeight', 'normal')}
+                className={`rounded px-2 py-1 text-xs ${
+                  clip.fontWeight === 'normal'
+                    ? 'bg-[var(--color-primary)] text-white'
+                    : 'bg-[var(--color-surface)] text-[var(--color-text)] border border-[var(--color-border)]'
+                }`}
+              >
+                {t('text.normal')}
+              </button>
+              <button
+                onClick={() => handleUpdate('fontWeight', 'bold')}
+                className={`rounded px-2 py-1 text-xs font-bold ${
+                  clip.fontWeight === 'bold' || !clip.fontWeight
+                    ? 'bg-[var(--color-primary)] text-white'
+                    : 'bg-[var(--color-surface)] text-[var(--color-text)] border border-[var(--color-border)]'
+                }`}
+              >
+                {t('text.bold')}
+              </button>
+            </div>
+          </div>
+
+          {/* Text align */}
+          <div className="flex items-center gap-2">
+            <label className="text-[10px] text-[var(--color-text-secondary)]">
+              {t('text.textAlign')}
+            </label>
+            <div className="flex gap-1">
+              {(['left', 'center', 'right'] as const).map((align) => (
+                <button
+                  key={align}
+                  onClick={() => handleUpdate('textAlign', align)}
+                  className={`rounded px-2 py-1 text-xs ${
+                    clip.textAlign === align || (!clip.textAlign && align === 'center')
+                      ? 'bg-[var(--color-primary)] text-white'
+                      : 'bg-[var(--color-surface)] text-[var(--color-text)] border border-[var(--color-border)]'
+                  }`}
+                >
+                  {t(`text.${align}`)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Background opacity */}
+          <PropertySlider
+            label={t('text.backgroundOpacity')}
+            value={clip.backgroundOpacity ?? 0}
+            min={0}
+            max={1}
+            step={0.1}
+            onChange={(v) => handleUpdate('backgroundOpacity', v)}
+            format={(v) => `${Math.round(v * 100)}%`}
+          />
+
+          {/* Transform section */}
+          <div className="text-[10px] font-medium uppercase tracking-wider text-[var(--color-text-secondary)] mt-2">
             {t('properties.transform')}
           </div>
           <PropertySlider

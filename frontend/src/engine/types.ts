@@ -1,7 +1,7 @@
 import type { ClipFilters } from '@/effects/types';
 import type { Transition } from '@/types/transitions';
 
-export type TrackType = 'video' | 'audio' | 'music' | 'sfx' | 'subtitle' | 'sticker';
+export type TrackType = 'video' | 'audio' | 'music' | 'sfx' | 'subtitle' | 'sticker' | 'text';
 
 export type EngineState = 'idle' | 'loading' | 'ready' | 'playing' | 'seeking';
 
@@ -40,10 +40,19 @@ export interface RenderableClip {
   scaleY?: number;
   rotation?: number;
   transitionIn?: Transition;
+  // Text properties
+  textContent?: string;
+  fontSize?: number;
+  fontFamily?: string;
+  fontColor?: string;
+  fontWeight?: string;
+  textAlign?: string;
+  backgroundColor?: string;
+  backgroundOpacity?: number;
 }
 
 export interface CompositeLayer {
-  type: 'video' | 'image' | 'sticker';
+  type: 'video' | 'image' | 'sticker' | 'text';
   frame: CanvasImageSource;
   opacity: number;
   filter?: string;

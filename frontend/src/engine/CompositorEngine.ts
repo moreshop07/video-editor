@@ -16,6 +16,7 @@ import { VideoDecoderPool } from './VideoDecoderPool';
 import { HTMLVideoPool } from './fallback/HTMLVideoPool';
 import { buildCanvasFilterString } from '@/effects/buildCanvasFilter';
 import { TransitionRenderer } from './TransitionRenderer';
+import { TextRenderer } from './TextRenderer';
 
 interface TransitionClipPair {
   outgoingClip: RenderableClip | null;
@@ -279,8 +280,8 @@ export class CompositorEngine {
     for (const track of this.tracks) {
       if (!track.visible) continue;
 
-      // Check for transitions on video/image tracks
-      const isVisualTrack = track.type === 'video' || track.type === 'sticker';
+      // Check for transitions on video/image/text tracks
+      const isVisualTrack = track.type === 'video' || track.type === 'sticker' || track.type === 'text';
 
       if (isVisualTrack) {
         const clipPair = this.findActiveClipsWithTransition(track.clips, timeMs);
@@ -547,19 +548,66 @@ export class CompositorEngine {
 
   private async renderClip(
     clip: RenderableClip,
-    track: RenderableTrack,
-    timeMs: number,
+    _track: RenderableTrack,
+    _timeMs: number,
   ): Promise<CompositeLayer | null> {
     const isVideo = clip.type === 'video';
     const isImage = clip.type === 'image' || clip.type === 'sticker';
+    const isText = clip.type === 'text';
 
-    if (!isVideo && !isImage) return null;
-
-    // Calculate source time within the clip
-    const sourceTimeMs = clip.trimStart + (timeMs - clip.startTime);
+    if (!isVideo && !isImage && !isText) return null;
 
     try {
       let frame: ImageBitmap | null = null;
+
+      if (isText) {
+        // Render text clip using TextRenderer
+        frame = await TextRenderer.render({
+          text: clip.textContent || '',
+          fontSize: clip.fontSize || 48,
+          fontFamily: clip.fontFamily || 'Arial',
+          fontColor: clip.fontColor || '#FFFFFF',
+          fontWeight: clip.fontWeight || 'bold',
+          textAlign: (clip.textAlign as CanvasTextAlign) || 'center',
+          backgroundColor: clip.backgroundColor,
+          backgroundOpacity: clip.backgroundOpacity,
+          canvasWidth: this.config.width,
+          canvasHeight: this.config.height,
+        });
+
+        if (!frame) return null;
+
+        // Text clips use transform for positioning
+        const textSize = TextRenderer.measureText(
+          clip.textContent || '',
+          clip.fontSize || 48,
+          clip.fontFamily || 'Arial',
+          clip.fontWeight || 'bold',
+        );
+
+        const sx = clip.scaleX ?? 1;
+        const sy = clip.scaleY ?? 1;
+        const w = textSize.width * sx;
+        const h = textSize.height * sy;
+        const px = (clip.positionX ?? 0.5) * this.config.width - w / 2;
+        const py = (clip.positionY ?? 0.5) * this.config.height - h / 2;
+
+        return {
+          type: 'text',
+          frame,
+          opacity: clip.opacity,
+          transform: {
+            x: px,
+            y: py,
+            width: w,
+            height: h,
+            rotation: clip.rotation,
+          },
+        };
+      }
+
+      // Calculate source time within the clip for video/image
+      const sourceTimeMs = clip.trimStart + (_timeMs - clip.startTime);
 
       if (isVideo) {
         frame = await this.decoderPool.getFrame(clip.assetId, sourceTimeMs);

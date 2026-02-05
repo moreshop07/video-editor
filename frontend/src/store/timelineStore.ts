@@ -14,7 +14,7 @@ export interface Clip {
   trimEnd: number;       // trim from end of source in ms
   duration: number;      // source duration in ms
   name: string;
-  type: string;          // video, audio, image
+  type: string;          // video, audio, image, text
   filters: ClipFilters;
   volume?: number;
   fadeInMs: number;
@@ -25,12 +25,22 @@ export interface Clip {
   scaleY?: number;     // default 1.0
   rotation?: number;   // degrees, default 0
   transitionIn?: Transition; // transition at start of clip
+
+  // Text-specific properties
+  textContent?: string;           // The text to render
+  fontSize?: number;              // Font size in pixels
+  fontFamily?: string;            // Font family name
+  fontColor?: string;             // Text color (#RRGGBB)
+  fontWeight?: 'normal' | 'bold';
+  textAlign?: 'left' | 'center' | 'right';
+  backgroundColor?: string;       // Optional background color
+  backgroundOpacity?: number;     // 0-1, default 0 (no background)
 }
 
 export interface Track {
   id: string;
   name: string;
-  type: 'video' | 'audio' | 'music' | 'sfx' | 'subtitle' | 'sticker';
+  type: 'video' | 'audio' | 'music' | 'sfx' | 'subtitle' | 'sticker' | 'text';
   clips: Clip[];
   muted: boolean;
   locked: boolean;
@@ -70,6 +80,15 @@ export interface ProjectData {
         scaleY?: number;
         rotation?: number;
         transitionIn?: Transition;
+        // Text properties
+        textContent?: string;
+        fontSize?: number;
+        fontFamily?: string;
+        fontColor?: string;
+        fontWeight?: 'normal' | 'bold';
+        textAlign?: 'left' | 'center' | 'right';
+        backgroundColor?: string;
+        backgroundOpacity?: number;
       }>;
     }>;
     zoom: number;
@@ -115,6 +134,15 @@ export function serializeForSave(state: {
           scaleY: c.scaleY,
           rotation: c.rotation,
           transitionIn: c.transitionIn,
+          // Text properties
+          textContent: c.textContent,
+          fontSize: c.fontSize,
+          fontFamily: c.fontFamily,
+          fontColor: c.fontColor,
+          fontWeight: c.fontWeight,
+          textAlign: c.textAlign,
+          backgroundColor: c.backgroundColor,
+          backgroundOpacity: c.backgroundOpacity,
         })),
       })),
       zoom: state.zoom,
@@ -482,6 +510,15 @@ export const useTimelineStore = create<TimelineState>()(
               scaleY: c.scaleY,
               rotation: c.rotation,
               transitionIn: c.transitionIn,
+              // Text properties
+              textContent: c.textContent,
+              fontSize: c.fontSize,
+              fontFamily: c.fontFamily,
+              fontColor: c.fontColor,
+              fontWeight: c.fontWeight,
+              textAlign: c.textAlign,
+              backgroundColor: c.backgroundColor,
+              backgroundOpacity: c.backgroundOpacity,
             })),
           })),
           zoom: data.timeline.zoom ?? 1,

@@ -221,6 +221,24 @@
     "empty": "尚無專案",
     "untitled": "未命名專案"
   },
+  "text": {
+    "title": "文字",
+    "addText": "新增文字",
+    "content": "內容",
+    "fontSize": "字體大小",
+    "fontFamily": "字體",
+    "fontColor": "顏色",
+    "fontWeight": "粗細",
+    "textAlign": "對齊",
+    "normal": "正常",
+    "bold": "粗體",
+    "left": "靠左",
+    "center": "置中",
+    "right": "靠右",
+    "backgroundColor": "背景顏色",
+    "backgroundOpacity": "背景透明度",
+    "placeholder": "輸入文字..."
+  },
   "transition": {
     "title": "轉場效果",
     "none": "無",
