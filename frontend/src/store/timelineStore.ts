@@ -3,6 +3,8 @@ import { temporal } from 'zundo';
 import type { ClipFilters } from '@/effects/types';
 import { DEFAULT_CLIP_FILTERS } from '@/effects/types';
 import type { Transition } from '@/types/transitions';
+import type { KeyframeTracks, AnimatableProperty } from '@/types/keyframes';
+import { setKeyframe, removeKeyframe } from '@/utils/keyframeUtils';
 
 export interface Clip {
   id: string;
@@ -35,6 +37,9 @@ export interface Clip {
   textAlign?: 'left' | 'center' | 'right';
   backgroundColor?: string;       // Optional background color
   backgroundOpacity?: number;     // 0-1, default 0 (no background)
+
+  // Keyframe animation
+  keyframes?: KeyframeTracks;     // Animated property keyframes
 }
 
 export interface Track {
@@ -89,6 +94,7 @@ export interface ProjectData {
         textAlign?: 'left' | 'center' | 'right';
         backgroundColor?: string;
         backgroundOpacity?: number;
+        keyframes?: KeyframeTracks;
       }>;
     }>;
     zoom: number;
@@ -143,6 +149,8 @@ export function serializeForSave(state: {
           textAlign: c.textAlign,
           backgroundColor: c.backgroundColor,
           backgroundOpacity: c.backgroundOpacity,
+          // Keyframe animation
+          keyframes: c.keyframes,
         })),
       })),
       zoom: state.zoom,
@@ -179,6 +187,8 @@ interface TimelineState {
   splitClip: (trackId: string, clipId: string, splitTime: number) => void;
   updateClip: (trackId: string, clipId: string, updates: Partial<Clip>) => void;
   setClipTransition: (clipId: string, transition: Transition | undefined) => void;
+  setClipKeyframe: (clipId: string, property: AnimatableProperty, timeMs: number, value: number) => void;
+  removeClipKeyframe: (clipId: string, property: AnimatableProperty, timeMs: number) => void;
 
   // Playback
   play: () => void;
@@ -445,6 +455,30 @@ export const useTimelineStore = create<TimelineState>()(
           })),
         })),
 
+      setClipKeyframe: (clipId, property, timeMs, value) =>
+        set((state) => ({
+          tracks: state.tracks.map((track) => ({
+            ...track,
+            clips: track.clips.map((c) =>
+              c.id === clipId
+                ? { ...c, keyframes: setKeyframe(c.keyframes, property, timeMs, value) }
+                : c
+            ),
+          })),
+        })),
+
+      removeClipKeyframe: (clipId, property, timeMs) =>
+        set((state) => ({
+          tracks: state.tracks.map((track) => ({
+            ...track,
+            clips: track.clips.map((c) =>
+              c.id === clipId
+                ? { ...c, keyframes: removeKeyframe(c.keyframes, property, timeMs) }
+                : c
+            ),
+          })),
+        })),
+
       play: () => set({ isPlaying: true }),
       pause: () => set({ isPlaying: false }),
       togglePlay: () => set((s) => ({ isPlaying: !s.isPlaying })),
@@ -519,6 +553,8 @@ export const useTimelineStore = create<TimelineState>()(
               textAlign: c.textAlign,
               backgroundColor: c.backgroundColor,
               backgroundOpacity: c.backgroundOpacity,
+              // Keyframe animation
+              keyframes: c.keyframes,
             })),
           })),
           zoom: data.timeline.zoom ?? 1,

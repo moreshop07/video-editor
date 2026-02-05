@@ -1,5 +1,6 @@
 import type { ClipFilters } from '@/effects/types';
 import type { Transition } from '@/types/transitions';
+import type { KeyframeTracks } from '@/types/keyframes';
 
 export type TrackType = 'video' | 'audio' | 'music' | 'sfx' | 'subtitle' | 'sticker' | 'text';
 
@@ -49,6 +50,8 @@ export interface RenderableClip {
   textAlign?: string;
   backgroundColor?: string;
   backgroundOpacity?: number;
+  // Keyframe animation
+  keyframes?: KeyframeTracks;
 }
 
 export interface CompositeLayer {

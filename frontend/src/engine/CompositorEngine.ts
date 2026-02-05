@@ -17,6 +17,8 @@ import { HTMLVideoPool } from './fallback/HTMLVideoPool';
 import { buildCanvasFilterString } from '@/effects/buildCanvasFilter';
 import { TransitionRenderer } from './TransitionRenderer';
 import { TextRenderer } from './TextRenderer';
+import { getInterpolatedValue } from '@/utils/keyframeUtils';
+import { ANIMATABLE_PROPERTY_DEFAULTS } from '@/types/keyframes';
 
 interface TransitionClipPair {
   outgoingClip: RenderableClip | null;
@@ -188,6 +190,40 @@ export class CompositorEngine {
 
         this.preloadedAssets.add(clip.assetId);
       }
+    }
+  }
+
+  /**
+   * Get interpolated property value at a given time.
+   * Uses keyframes if available, otherwise falls back to clip property or default.
+   */
+  private getInterpolatedClipProperty(
+    clip: RenderableClip,
+    property: 'positionX' | 'positionY' | 'scaleX' | 'scaleY' | 'rotation' | 'opacity',
+    clipTimeMs: number,
+  ): number {
+    // Check for keyframes
+    if (clip.keyframes && clip.keyframes[property]?.length > 0) {
+      const defaultValue = ANIMATABLE_PROPERTY_DEFAULTS[property];
+      return getInterpolatedValue(clip.keyframes[property], clipTimeMs, defaultValue);
+    }
+
+    // Fall back to static clip property or default
+    switch (property) {
+      case 'positionX':
+        return clip.positionX ?? ANIMATABLE_PROPERTY_DEFAULTS.positionX;
+      case 'positionY':
+        return clip.positionY ?? ANIMATABLE_PROPERTY_DEFAULTS.positionY;
+      case 'scaleX':
+        return clip.scaleX ?? ANIMATABLE_PROPERTY_DEFAULTS.scaleX;
+      case 'scaleY':
+        return clip.scaleY ?? ANIMATABLE_PROPERTY_DEFAULTS.scaleY;
+      case 'rotation':
+        return clip.rotation ?? ANIMATABLE_PROPERTY_DEFAULTS.rotation;
+      case 'opacity':
+        return clip.opacity ?? ANIMATABLE_PROPERTY_DEFAULTS.opacity;
+      default:
+        return ANIMATABLE_PROPERTY_DEFAULTS[property];
     }
   }
 
@@ -557,6 +593,17 @@ export class CompositorEngine {
 
     if (!isVideo && !isImage && !isText) return null;
 
+    // Calculate clip-relative time for keyframe interpolation
+    const clipTimeMs = _timeMs - clip.startTime;
+
+    // Get interpolated transform values
+    const positionX = this.getInterpolatedClipProperty(clip, 'positionX', clipTimeMs);
+    const positionY = this.getInterpolatedClipProperty(clip, 'positionY', clipTimeMs);
+    const scaleX = this.getInterpolatedClipProperty(clip, 'scaleX', clipTimeMs);
+    const scaleY = this.getInterpolatedClipProperty(clip, 'scaleY', clipTimeMs);
+    const rotation = this.getInterpolatedClipProperty(clip, 'rotation', clipTimeMs);
+    const opacity = this.getInterpolatedClipProperty(clip, 'opacity', clipTimeMs);
+
     try {
       let frame: ImageBitmap | null = null;
 
@@ -585,29 +632,27 @@ export class CompositorEngine {
           clip.fontWeight || 'bold',
         );
 
-        const sx = clip.scaleX ?? 1;
-        const sy = clip.scaleY ?? 1;
-        const w = textSize.width * sx;
-        const h = textSize.height * sy;
-        const px = (clip.positionX ?? 0.5) * this.config.width - w / 2;
-        const py = (clip.positionY ?? 0.5) * this.config.height - h / 2;
+        const w = textSize.width * scaleX;
+        const h = textSize.height * scaleY;
+        const px = positionX * this.config.width - w / 2;
+        const py = positionY * this.config.height - h / 2;
 
         return {
           type: 'text',
           frame,
-          opacity: clip.opacity,
+          opacity,
           transform: {
             x: px,
             y: py,
             width: w,
             height: h,
-            rotation: clip.rotation,
+            rotation,
           },
         };
       }
 
       // Calculate source time within the clip for video/image
-      const sourceTimeMs = clip.trimStart + (_timeMs - clip.startTime);
+      const sourceTimeMs = clip.trimStart + clipTimeMs;
 
       if (isVideo) {
         frame = await this.decoderPool.getFrame(clip.assetId, sourceTimeMs);
@@ -623,30 +668,29 @@ export class CompositorEngine {
       // Get cached filter string (memoized for performance)
       const filter = this.getCachedFilterString(clip);
 
-      // Compute pixel transform from normalized clip values
+      // Compute pixel transform from interpolated clip values
       const hasTransform =
-        clip.positionX != null || clip.scaleX != null || clip.rotation;
+        clip.positionX != null || clip.scaleX != null || clip.rotation ||
+        (clip.keyframes && Object.keys(clip.keyframes).length > 0);
       let transform: CompositeLayer['transform'] | undefined;
       if (hasTransform && frame) {
-        const sx = clip.scaleX ?? 1;
-        const sy = clip.scaleY ?? 1;
-        const w = frame.width * sx;
-        const h = frame.height * sy;
-        const px = (clip.positionX ?? 0.5) * this.config.width - w / 2;
-        const py = (clip.positionY ?? 0.5) * this.config.height - h / 2;
+        const w = frame.width * scaleX;
+        const h = frame.height * scaleY;
+        const px = positionX * this.config.width - w / 2;
+        const py = positionY * this.config.height - h / 2;
         transform = {
           x: px,
           y: py,
           width: w,
           height: h,
-          rotation: clip.rotation,
+          rotation,
         };
       }
 
       return {
         type: isVideo ? 'video' : 'image',
         frame,
-        opacity: clip.opacity,
+        opacity,
         filter,
         transform,
       };

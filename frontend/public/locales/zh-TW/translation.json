@@ -123,8 +123,18 @@
     "transform": "變換",
     "positionX": "X 位置",
     "positionY": "Y 位置",
+    "scaleX": "X 縮放",
+    "scaleY": "Y 縮放",
     "scale": "縮放",
-    "rotation": "旋轉"
+    "rotation": "旋轉",
+    "opacity": "不透明度"
+  },
+  "keyframes": {
+    "title": "關鍵影格",
+    "clipTime": "片段時間",
+    "addKeyframe": "新增關鍵影格",
+    "removeKeyframe": "移除關鍵影格",
+    "movePlayhead": "將播放頭移至片段內以新增關鍵影格"
   },
   "music": {
     "title": "音樂庫",

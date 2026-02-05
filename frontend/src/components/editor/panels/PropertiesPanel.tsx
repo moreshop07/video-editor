@@ -5,8 +5,11 @@ import { getEffectDefinition } from '@/effects/effectDefinitions';
 import type { ClipFilters } from '@/effects/types';
 import { DEFAULT_CLIP_FILTERS } from '@/effects/types';
 import type { Transition } from '@/types/transitions';
+import type { AnimatableProperty } from '@/types/keyframes';
+import { ANIMATABLE_PROPERTY_DEFAULTS } from '@/types/keyframes';
 import AudioProcessingPanel from '@/components/audio/AudioProcessingPanel';
 import { TransitionPicker } from '@/components/editor/timeline/TransitionPicker';
+import { KeyframeEditor } from './KeyframeEditor';
 
 function PropertiesPanelComponent() {
   const { t } = useTranslation();
@@ -84,8 +87,19 @@ function PropertiesPanelComponent() {
   const isAudioType =
     track.type === 'audio' || track.type === 'music' || track.type === 'sfx';
   const isTextType = track.type === 'text';
+  const supportsKeyframes = isVideoType || isTextType;
   const clipFilters = clip.filters ?? DEFAULT_CLIP_FILTERS;
   const activeEffects = clipFilters.effects.filter((e) => e.enabled);
+
+  // Current property values for keyframe editor
+  const currentPropertyValues = useMemo<Record<AnimatableProperty, number>>(() => ({
+    positionX: clip.positionX ?? ANIMATABLE_PROPERTY_DEFAULTS.positionX,
+    positionY: clip.positionY ?? ANIMATABLE_PROPERTY_DEFAULTS.positionY,
+    scaleX: clip.scaleX ?? ANIMATABLE_PROPERTY_DEFAULTS.scaleX,
+    scaleY: clip.scaleY ?? ANIMATABLE_PROPERTY_DEFAULTS.scaleY,
+    rotation: clip.rotation ?? ANIMATABLE_PROPERTY_DEFAULTS.rotation,
+    opacity: 1, // Default opacity
+  }), [clip.positionX, clip.positionY, clip.scaleX, clip.scaleY, clip.rotation]);
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -403,6 +417,20 @@ function PropertiesPanelComponent() {
           <TransitionPicker
             value={clip.transitionIn}
             onChange={handleTransitionChange}
+          />
+        </div>
+      )}
+
+      {/* Keyframe animation editor */}
+      {supportsKeyframes && (
+        <div className="border-t border-[var(--color-border)] pt-3">
+          <KeyframeEditor
+            clipId={clip.id}
+            trackId={track.id}
+            clipStartTime={clip.startTime}
+            clipDuration={clip.endTime - clip.startTime}
+            keyframeTracks={clip.keyframes}
+            currentPropertyValues={currentPropertyValues}
           />
         </div>
       )}

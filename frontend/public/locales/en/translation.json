@@ -123,8 +123,18 @@
     "transform": "Transform",
     "positionX": "Position X",
     "positionY": "Position Y",
+    "scaleX": "Scale X",
+    "scaleY": "Scale Y",
     "scale": "Scale",
-    "rotation": "Rotation"
+    "rotation": "Rotation",
+    "opacity": "Opacity"
+  },
+  "keyframes": {
+    "title": "Keyframes",
+    "clipTime": "Clip Time",
+    "addKeyframe": "Add Keyframe",
+    "removeKeyframe": "Remove Keyframe",
+    "movePlayhead": "Move playhead within clip to add keyframes"
   },
   "music": {
     "title": "Music Library",
