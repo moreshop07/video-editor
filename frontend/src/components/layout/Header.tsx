@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useStore } from 'zustand';
 import { useProjectStore } from '@/store/projectStore';
 import { useTimelineStore } from '@/store/timelineStore';
 import SaveIndicator from '@/components/editor/SaveIndicator';
@@ -10,6 +11,16 @@ function HeaderComponent() {
 
   const [isEditingName, setIsEditingName] = useState(false);
   const [projectName, setProjectName] = useState(currentProject?.name || t('project.name'));
+
+  // Subscribe to temporal state for undo/redo button states
+  const canUndo = useStore(
+    useTimelineStore.temporal,
+    (state) => state.pastStates.length > 0
+  );
+  const canRedo = useStore(
+    useTimelineStore.temporal,
+    (state) => state.futureStates.length > 0
+  );
 
   const handleNameSubmit = useCallback(() => {
     setIsEditingName(false);
@@ -60,8 +71,9 @@ function HeaderComponent() {
       <div className="flex items-center gap-1">
         <button
           onClick={handleUndo}
-          className="rounded px-3 py-1 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-bg)] hover:text-[var(--color-text)]"
-          title={t('common.undo')}
+          disabled={!canUndo}
+          className="rounded px-3 py-1 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-bg)] hover:text-[var(--color-text)] disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+          title={`${t('undo')} (${navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+Z)`}
         >
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a5 5 0 015 5v2M3 10l4-4M3 10l4 4" />
@@ -69,8 +81,9 @@ function HeaderComponent() {
         </button>
         <button
           onClick={handleRedo}
-          className="rounded px-3 py-1 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-bg)] hover:text-[var(--color-text)]"
-          title={t('common.redo')}
+          disabled={!canRedo}
+          className="rounded px-3 py-1 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-bg)] hover:text-[var(--color-text)] disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+          title={`${t('redo')} (${navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+Shift+Z)`}
         >
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10H11a5 5 0 00-5 5v2M21 10l-4-4M21 10l-4 4" />

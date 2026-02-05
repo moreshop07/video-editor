@@ -148,6 +148,24 @@ export default function Timeline() {
           }
           break;
         }
+        case 'z':
+        case 'Z':
+          if (e.metaKey || e.ctrlKey) {
+            e.preventDefault();
+            if (e.shiftKey) {
+              useTimelineStore.temporal.getState().redo();
+            } else {
+              useTimelineStore.temporal.getState().undo();
+            }
+          }
+          break;
+        case 'y':
+        case 'Y':
+          if (e.metaKey || e.ctrlKey) {
+            e.preventDefault();
+            useTimelineStore.temporal.getState().redo();
+          }
+          break;
       }
     };
     window.addEventListener('keydown', handleKeyDown);

@@ -476,8 +476,29 @@ export const useTimelineStore = create<TimelineState>()(
           selectedClipId: null,
           selectedTrackId: null,
         });
+
+        // Clear undo/redo history for fresh project state
+        // setTimeout needed because clear() must run after state update completes
+        setTimeout(() => {
+          useTimelineStore.temporal.getState().clear();
+        }, 0);
       },
     }),
-    { limit: 100 }
+    {
+      limit: 100,
+      partialize: (state) => ({
+        // Only track content state, not transient UI state
+        tracks: state.tracks,
+        zoom: state.zoom,
+        scrollX: state.scrollX,
+        snapEnabled: state.snapEnabled,
+        // Excluded from history:
+        // - currentTime (playback position)
+        // - isPlaying (playback state)
+        // - selectedClipId, selectedTrackId (selection)
+        // - snapLine (visual feedback)
+        // - duration (computed)
+      }),
+    }
   )
 );
