@@ -1,4 +1,5 @@
 import type { ClipFilters } from '@/effects/types';
+import type { Transition } from '@/types/transitions';
 
 export type TrackType = 'video' | 'audio' | 'music' | 'sfx' | 'subtitle' | 'sticker';
 
@@ -38,6 +39,7 @@ export interface RenderableClip {
   scaleX?: number;
   scaleY?: number;
   rotation?: number;
+  transitionIn?: Transition;
 }
 
 export interface CompositeLayer {

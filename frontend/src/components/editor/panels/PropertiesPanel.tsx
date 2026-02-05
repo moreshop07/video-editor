@@ -4,11 +4,13 @@ import { useTimelineStore, type Clip, type Track } from '@/store/timelineStore';
 import { getEffectDefinition } from '@/effects/effectDefinitions';
 import type { ClipFilters } from '@/effects/types';
 import { DEFAULT_CLIP_FILTERS } from '@/effects/types';
+import type { Transition } from '@/types/transitions';
 import AudioProcessingPanel from '@/components/audio/AudioProcessingPanel';
+import { TransitionPicker } from '@/components/editor/timeline/TransitionPicker';
 
 function PropertiesPanelComponent() {
   const { t } = useTranslation();
-  const { tracks, selectedClipId, updateClip } = useTimelineStore();
+  const { tracks, selectedClipId, updateClip, setClipTransition } = useTimelineStore();
 
   const selectedData = useMemo<{
     clip: Clip;
@@ -57,6 +59,14 @@ function PropertiesPanelComponent() {
       });
     },
     [selectedData, updateClip],
+  );
+
+  const handleTransitionChange = useCallback(
+    (transition: Transition | undefined) => {
+      if (!selectedData) return;
+      setClipTransition(selectedData.clip.id, transition);
+    },
+    [selectedData, setClipTransition],
   );
 
   if (!selectedData) {
@@ -216,6 +226,16 @@ function PropertiesPanelComponent() {
             step={100}
             onChange={(v) => handleUpdate('fadeOutMs', v)}
             format={(v) => `${(v / 1000).toFixed(1)}s`}
+          />
+        </div>
+      )}
+
+      {/* Transition (video clips only) */}
+      {isVideoType && (
+        <div className="border-t border-[var(--color-border)] pt-3">
+          <TransitionPicker
+            value={clip.transitionIn}
+            onChange={handleTransitionChange}
           />
         </div>
       )}

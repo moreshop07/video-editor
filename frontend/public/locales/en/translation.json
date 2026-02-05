@@ -221,6 +221,22 @@
     "empty": "No projects yet",
     "untitled": "Untitled Project"
   },
+  "transition": {
+    "title": "Transition",
+    "none": "None",
+    "fade": "Fade",
+    "slideLeft": "Slide Left",
+    "slideRight": "Slide Right",
+    "slideUp": "Slide Up",
+    "slideDown": "Slide Down",
+    "wipeLeft": "Wipe Left",
+    "wipeRight": "Wipe Right",
+    "wipeUp": "Wipe Up",
+    "wipeDown": "Wipe Down",
+    "zoomIn": "Zoom In",
+    "zoomOut": "Zoom Out",
+    "duration": "Duration"
+  },
   "template": {
     "title": "Start with a Template",
     "blank": {

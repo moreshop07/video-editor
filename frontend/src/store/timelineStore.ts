@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { temporal } from 'zundo';
 import type { ClipFilters } from '@/effects/types';
 import { DEFAULT_CLIP_FILTERS } from '@/effects/types';
+import type { Transition } from '@/types/transitions';
 
 export interface Clip {
   id: string;
@@ -23,6 +24,7 @@ export interface Clip {
   scaleX?: number;     // default 1.0
   scaleY?: number;     // default 1.0
   rotation?: number;   // degrees, default 0
+  transitionIn?: Transition; // transition at start of clip
 }
 
 export interface Track {
@@ -67,6 +69,7 @@ export interface ProjectData {
         scaleX?: number;
         scaleY?: number;
         rotation?: number;
+        transitionIn?: Transition;
       }>;
     }>;
     zoom: number;
@@ -111,6 +114,7 @@ export function serializeForSave(state: {
           scaleX: c.scaleX,
           scaleY: c.scaleY,
           rotation: c.rotation,
+          transitionIn: c.transitionIn,
         })),
       })),
       zoom: state.zoom,
@@ -146,6 +150,7 @@ interface TimelineState {
   trimClip: (trackId: string, clipId: string, side: 'start' | 'end', newTime: number) => void;
   splitClip: (trackId: string, clipId: string, splitTime: number) => void;
   updateClip: (trackId: string, clipId: string, updates: Partial<Clip>) => void;
+  setClipTransition: (clipId: string, transition: Transition | undefined) => void;
 
   // Playback
   play: () => void;
@@ -402,6 +407,16 @@ export const useTimelineStore = create<TimelineState>()(
           }),
         })),
 
+      setClipTransition: (clipId, transition) =>
+        set((state) => ({
+          tracks: state.tracks.map((track) => ({
+            ...track,
+            clips: track.clips.map((c) =>
+              c.id === clipId ? { ...c, transitionIn: transition } : c
+            ),
+          })),
+        })),
+
       play: () => set({ isPlaying: true }),
       pause: () => set({ isPlaying: false }),
       togglePlay: () => set((s) => ({ isPlaying: !s.isPlaying })),
@@ -466,6 +481,7 @@ export const useTimelineStore = create<TimelineState>()(
               scaleX: c.scaleX,
               scaleY: c.scaleY,
               rotation: c.rotation,
+              transitionIn: c.transitionIn,
             })),
           })),
           zoom: data.timeline.zoom ?? 1,

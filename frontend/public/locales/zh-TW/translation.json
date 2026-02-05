@@ -221,6 +221,22 @@
     "empty": "尚無專案",
     "untitled": "未命名專案"
   },
+  "transition": {
+    "title": "轉場效果",
+    "none": "無",
+    "fade": "淡入淡出",
+    "slideLeft": "向左滑動",
+    "slideRight": "向右滑動",
+    "slideUp": "向上滑動",
+    "slideDown": "向下滑動",
+    "wipeLeft": "向左擦除",
+    "wipeRight": "向右擦除",
+    "wipeUp": "向上擦除",
+    "wipeDown": "向下擦除",
+    "zoomIn": "放大",
+    "zoomOut": "縮小",
+    "duration": "時長"
+  },
   "template": {
     "title": "從範本開始",
     "blank": {

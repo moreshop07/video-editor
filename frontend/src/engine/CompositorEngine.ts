@@ -7,6 +7,7 @@ import type {
   IVideoDecoderPool,
   SubtitleEntry,
 } from './types';
+import type { Transition } from '@/types/transitions';
 import { AssetCache } from './AssetCache';
 import { CanvasCompositor } from './CanvasCompositor';
 import { AudioMixerEngine } from './AudioMixerEngine';
@@ -14,6 +15,14 @@ import { FrameScheduler } from './FrameScheduler';
 import { VideoDecoderPool } from './VideoDecoderPool';
 import { HTMLVideoPool } from './fallback/HTMLVideoPool';
 import { buildCanvasFilterString } from '@/effects/buildCanvasFilter';
+import { TransitionRenderer } from './TransitionRenderer';
+
+interface TransitionClipPair {
+  outgoingClip: RenderableClip | null;
+  incomingClip: RenderableClip | null;
+  transition: Transition | null;
+  progress: number;
+}
 
 export class CompositorEngine {
   private config: EngineConfig;
@@ -270,15 +279,49 @@ export class CompositorEngine {
     for (const track of this.tracks) {
       if (!track.visible) continue;
 
-      const activeClip = this.findActiveClip(track.clips, timeMs);
-      if (!activeClip) continue;
+      // Check for transitions on video/image tracks
+      const isVisualTrack = track.type === 'video' || track.type === 'sticker';
 
-      const layer = await this.renderClip(activeClip, track, timeMs);
-      if (layer) {
-        layers.push(layer);
-        // Track video frame bitmaps for cleanup
-        if (layer.type === 'video' && layer.frame) {
-          this.pendingBitmaps.push(layer.frame);
+      if (isVisualTrack) {
+        const clipPair = this.findActiveClipsWithTransition(track.clips, timeMs);
+
+        if (clipPair.transition && clipPair.outgoingClip && clipPair.incomingClip) {
+          // We're in a transition - render both clips with transition effect
+          const transitionLayer = await this.renderTransition(
+            clipPair.outgoingClip,
+            clipPair.incomingClip,
+            clipPair.transition,
+            clipPair.progress,
+            track,
+            timeMs,
+          );
+          if (transitionLayer) {
+            layers.push(transitionLayer);
+            if (transitionLayer.type === 'video' && transitionLayer.frame instanceof ImageBitmap) {
+              this.pendingBitmaps.push(transitionLayer.frame);
+            }
+          }
+        } else if (clipPair.incomingClip) {
+          // Normal single clip rendering
+          const layer = await this.renderClip(clipPair.incomingClip, track, timeMs);
+          if (layer) {
+            layers.push(layer);
+            if (layer.type === 'video' && layer.frame instanceof ImageBitmap) {
+              this.pendingBitmaps.push(layer.frame);
+            }
+          }
+        }
+      } else {
+        // Audio tracks - use simple findActiveClip
+        const activeClip = this.findActiveClip(track.clips, timeMs);
+        if (!activeClip) continue;
+
+        const layer = await this.renderClip(activeClip, track, timeMs);
+        if (layer) {
+          layers.push(layer);
+          if (layer.type === 'video' && layer.frame instanceof ImageBitmap) {
+            this.pendingBitmaps.push(layer.frame);
+          }
         }
       }
     }
@@ -297,6 +340,151 @@ export class CompositorEngine {
     }
   }
 
+  /**
+   * Render a transition between two clips.
+   * Creates an off-screen canvas, renders both frames with transition effect,
+   * and returns the result as an ImageBitmap.
+   */
+  private async renderTransition(
+    outgoingClip: RenderableClip,
+    incomingClip: RenderableClip,
+    transition: Transition,
+    progress: number,
+    _track: RenderableTrack,
+    timeMs: number,
+  ): Promise<CompositeLayer | null> {
+    // Get frames for both clips
+    const outgoingFrame = await this.getClipFrame(outgoingClip, timeMs);
+    const incomingFrame = await this.getClipFrame(incomingClip, timeMs);
+
+    if (!incomingFrame) return null;
+
+    // Create off-screen canvas for the transition result
+    const offscreen = new OffscreenCanvas(this.config.width, this.config.height);
+    const ctx = offscreen.getContext('2d');
+    if (!ctx) return null;
+
+    // Clear with black
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, this.config.width, this.config.height);
+
+    // Prepare frames by drawing them aspect-fit to full canvas size
+    const preparedOutgoing = outgoingFrame
+      ? await this.prepareFrameForTransition(outgoingFrame)
+      : null;
+    const preparedIncoming = await this.prepareFrameForTransition(incomingFrame);
+
+    // Apply transition effect
+    TransitionRenderer.render(
+      ctx as unknown as CanvasRenderingContext2D,
+      preparedOutgoing,
+      preparedIncoming,
+      {
+        progress,
+        type: transition.type,
+        width: this.config.width,
+        height: this.config.height,
+      },
+    );
+
+    // Convert to ImageBitmap
+    const resultBitmap = await createImageBitmap(offscreen);
+
+    // Clean up temporary prepared bitmaps
+    if (preparedOutgoing && preparedOutgoing !== outgoingFrame) {
+      preparedOutgoing.close();
+    }
+    if (preparedIncoming !== incomingFrame) {
+      preparedIncoming.close();
+    }
+
+    // Clean up source frame bitmaps
+    if (outgoingFrame instanceof ImageBitmap) {
+      this.pendingBitmaps.push(outgoingFrame);
+    }
+    if (incomingFrame instanceof ImageBitmap) {
+      this.pendingBitmaps.push(incomingFrame);
+    }
+
+    return {
+      type: 'video',
+      frame: resultBitmap,
+      opacity: 1,
+    };
+  }
+
+  /**
+   * Get a frame for a clip at the specified time.
+   */
+  private async getClipFrame(
+    clip: RenderableClip,
+    timeMs: number,
+  ): Promise<ImageBitmap | null> {
+    const isVideo = clip.type === 'video';
+    const isImage = clip.type === 'image' || clip.type === 'sticker';
+
+    if (!isVideo && !isImage) return null;
+
+    // Calculate source time within the clip
+    const sourceTimeMs = clip.trimStart + (timeMs - clip.startTime);
+
+    try {
+      if (isVideo) {
+        return await this.decoderPool.getFrame(clip.assetId, sourceTimeMs);
+      } else if (isImage && this.urlResolver) {
+        return await this.assetCache.fetchImage(
+          clip.assetId,
+          this.urlResolver(clip.assetId),
+        );
+      }
+    } catch {
+      return null;
+    }
+
+    return null;
+  }
+
+  /**
+   * Prepare a frame for transition rendering by drawing it aspect-fit onto a canvas-sized bitmap.
+   * This ensures both frames in a transition are the same size for proper blending.
+   */
+  private async prepareFrameForTransition(
+    frame: ImageBitmap,
+  ): Promise<ImageBitmap> {
+    const tempCanvas = new OffscreenCanvas(this.config.width, this.config.height);
+    const tempCtx = tempCanvas.getContext('2d');
+    if (!tempCtx) return frame;
+
+    // Clear with black
+    tempCtx.fillStyle = '#000';
+    tempCtx.fillRect(0, 0, this.config.width, this.config.height);
+
+    // Calculate aspect-fit dimensions
+    const srcW = frame.width;
+    const srcH = frame.height;
+    const canvasRatio = this.config.width / this.config.height;
+    const srcRatio = srcW / srcH;
+
+    let drawW: number;
+    let drawH: number;
+
+    if (srcRatio > canvasRatio) {
+      drawW = this.config.width;
+      drawH = this.config.width / srcRatio;
+    } else {
+      drawH = this.config.height;
+      drawW = this.config.height * srcRatio;
+    }
+
+    const x = (this.config.width - drawW) / 2;
+    const y = (this.config.height - drawH) / 2;
+
+    tempCtx.drawImage(frame, x, y, drawW, drawH);
+
+    // Create a new ImageBitmap from the prepared canvas
+    return createImageBitmap(tempCanvas);
+  }
+
   private findActiveClip(
     clips: RenderableClip[],
     timeMs: number,
@@ -307,6 +495,54 @@ export class CompositorEngine {
       }
     }
     return null;
+  }
+
+  /**
+   * Find active clips with transition detection.
+   * Returns clip pair when in a transition zone.
+   */
+  private findActiveClipsWithTransition(
+    clips: RenderableClip[],
+    timeMs: number,
+  ): TransitionClipPair {
+    // Sort clips by startTime
+    const sorted = [...clips].sort((a, b) => a.startTime - b.startTime);
+
+    for (let i = 0; i < sorted.length; i++) {
+      const clip = sorted[i];
+      const prevClip = i > 0 ? sorted[i - 1] : null;
+
+      // Check if we're in a transition zone at the start of this clip
+      if (clip.transitionIn && clip.transitionIn.type !== 'none' && prevClip) {
+        const transitionStart = clip.startTime;
+        const transitionEnd = clip.startTime + clip.transitionIn.durationMs;
+
+        if (timeMs >= transitionStart && timeMs < transitionEnd) {
+          // Check if previous clip is still active (for transition to work)
+          if (timeMs < prevClip.endTime || prevClip.endTime >= transitionStart) {
+            const progress = (timeMs - transitionStart) / clip.transitionIn.durationMs;
+            return {
+              outgoingClip: prevClip,
+              incomingClip: clip,
+              transition: clip.transitionIn,
+              progress: Math.min(1, Math.max(0, progress)),
+            };
+          }
+        }
+      }
+
+      // Normal playback (no transition or outside transition zone)
+      if (timeMs >= clip.startTime && timeMs < clip.endTime) {
+        return {
+          outgoingClip: null,
+          incomingClip: clip,
+          transition: null,
+          progress: 1,
+        };
+      }
+    }
+
+    return { outgoingClip: null, incomingClip: null, transition: null, progress: 0 };
   }
 
   private async renderClip(
