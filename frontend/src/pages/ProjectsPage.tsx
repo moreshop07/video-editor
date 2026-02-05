@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useProjectStore } from '@/store';
+import { TemplateGallery } from '@/components/templates/TemplateGallery';
+import type { Template } from '@/data/templates';
 
 export default function ProjectsPage() {
   const { t } = useTranslation();
@@ -31,6 +33,28 @@ export default function ProjectsPage() {
     navigate(`/editor/${projectId}`);
   };
 
+  const handleSelectTemplate = async (template: Template) => {
+    const name =
+      template.id === 'blank'
+        ? t('project.untitled')
+        : `${t(template.nameKey)} - ${new Date().toLocaleDateString()}`;
+
+    setIsCreating(true);
+    try {
+      const project = await createProject(name, undefined, {
+        width: template.width,
+        height: template.height,
+        fps: template.fps,
+        projectData: template.projectData,
+      });
+      navigate(`/editor/${project.id}`);
+    } catch (error) {
+      console.error('Failed to create project from template:', error);
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   return (
     <div className="flex min-h-screen flex-col bg-[var(--color-bg)]">
       {/* Header */}
@@ -43,6 +67,9 @@ export default function ProjectsPage() {
 
       {/* Content */}
       <main className="flex-1 p-6">
+        {/* Templates */}
+        <TemplateGallery onSelect={handleSelectTemplate} disabled={isCreating} />
+
         {/* Create new project */}
         <div className="mb-6 flex items-center gap-3">
           <input

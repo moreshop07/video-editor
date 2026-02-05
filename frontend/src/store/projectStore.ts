@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { temporal } from 'zundo';
 import { projectApi } from '@/api/client';
+import type { ProjectData } from './timelineStore';
 
 export type AutoSaveStatus = 'saved' | 'saving' | 'unsaved' | 'error';
 
@@ -27,10 +28,17 @@ interface ProjectState {
   autoSaveStatus: AutoSaveStatus;
 }
 
+export interface CreateProjectOptions {
+  width?: number;
+  height?: number;
+  fps?: number;
+  projectData?: ProjectData;
+}
+
 interface ProjectActions {
   loadProject: (projectId: number) => Promise<void>;
   saveProject: () => Promise<void>;
-  createProject: (name: string, description?: string) => Promise<Project>;
+  createProject: (name: string, description?: string, options?: CreateProjectOptions) => Promise<Project>;
   updateProjectData: (data: Partial<Project>) => void;
   fetchProjects: () => Promise<void>;
   setCurrentProject: (project: Project | null) => void;
@@ -76,9 +84,24 @@ export const useProjectStore = create<ProjectStore>()(
         }
       },
 
-      createProject: async (name: string, description?: string) => {
-        const response = await projectApi.create({ name, description });
+      createProject: async (name: string, description?: string, options?: CreateProjectOptions) => {
+        const response = await projectApi.create({
+          name,
+          description,
+          width: options?.width,
+          height: options?.height,
+          fps: options?.fps,
+        });
         const project = response.data;
+
+        // If template provides initial project_data, save it immediately
+        if (options?.projectData) {
+          await projectApi.patchData(project.id, [
+            { op: 'replace', path: '', value: options.projectData },
+          ]);
+          project.project_data = options.projectData;
+        }
+
         set((state) => ({
           projects: [...state.projects, project],
           currentProject: project,

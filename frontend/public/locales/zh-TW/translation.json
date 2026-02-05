@@ -213,5 +213,35 @@
   },
   "common": {
     "loading": "載入中..."
+  },
+  "project": {
+    "myProjects": "我的專案",
+    "name": "專案名稱",
+    "new": "新增專案",
+    "empty": "尚無專案",
+    "untitled": "未命名專案"
+  },
+  "template": {
+    "title": "從範本開始",
+    "blank": {
+      "name": "空白專案",
+      "description": "從零開始"
+    },
+    "youtubeIntro": {
+      "name": "YouTube 片頭",
+      "description": "5-10 秒片頭"
+    },
+    "socialVertical": {
+      "name": "社群媒體（直式）",
+      "description": "9:16 適用 TikTok、Reels"
+    },
+    "productDemo": {
+      "name": "產品展示",
+      "description": "多場景展示"
+    },
+    "slideshow": {
+      "name": "照片幻燈片",
+      "description": "照片配樂輪播"
+    }
   }
 }

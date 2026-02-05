@@ -213,5 +213,35 @@
   },
   "common": {
     "loading": "Loading..."
+  },
+  "project": {
+    "myProjects": "My Projects",
+    "name": "Project Name",
+    "new": "New Project",
+    "empty": "No projects yet",
+    "untitled": "Untitled Project"
+  },
+  "template": {
+    "title": "Start with a Template",
+    "blank": {
+      "name": "Blank Project",
+      "description": "Start from scratch"
+    },
+    "youtubeIntro": {
+      "name": "YouTube Intro",
+      "description": "5-10 second intro"
+    },
+    "socialVertical": {
+      "name": "Social Media (Vertical)",
+      "description": "9:16 for TikTok, Reels"
+    },
+    "productDemo": {
+      "name": "Product Demo",
+      "description": "Multi-scene showcase"
+    },
+    "slideshow": {
+      "name": "Photo Slideshow",
+      "description": "Photo montage with music"
+    }
   }
 }
