@@ -298,7 +298,26 @@
     "right": "靠右",
     "backgroundColor": "背景顏色",
     "backgroundOpacity": "背景透明度",
-    "placeholder": "輸入文字..."
+    "placeholder": "輸入文字...",
+    "textStroke": "文字描邊",
+    "textStrokeWidth": "描邊寬度",
+    "textStrokeColor": "描邊顏色"
+  },
+  "shape": {
+    "title": "形狀",
+    "addShape": "點擊形狀加入時間軸",
+    "rectangle": "矩形",
+    "circle": "圓形",
+    "triangle": "三角形",
+    "star": "星形",
+    "arrow": "箭頭",
+    "line": "線條",
+    "fill": "填充顏色",
+    "fillOpacity": "填充不透明度",
+    "stroke": "邊框顏色",
+    "strokeWidth": "邊框寬度",
+    "cornerRadius": "圓角半徑",
+    "shapeType": "形狀類型"
   },
   "transition": {
     "title": "轉場效果",

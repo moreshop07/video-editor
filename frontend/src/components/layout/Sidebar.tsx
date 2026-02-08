@@ -7,6 +7,7 @@ import MusicLibrary from "@/components/audio/MusicLibrary";
 import SoundEffectsLibrary from "@/components/audio/SoundEffectsLibrary";
 import StickerLibrary from "@/components/stickers/StickerLibrary";
 import { TextLibrary } from "@/components/text/TextLibrary";
+import { ShapeLibrary } from "@/components/shapes/ShapeLibrary";
 import VideoDownloadPanel from "@/components/download/VideoDownloadPanel";
 import VideoAnalyzerPanel from "@/components/analysis/VideoAnalyzerPanel";
 import AutoEditPanel from "@/components/autoedit/AutoEditPanel";
@@ -27,6 +28,7 @@ type SidebarTab =
   | "stickers"
   | "subtitles"
   | "text"
+  | "shapes"
   | "download"
   | "analyzer"
   | "autoEdit"
@@ -52,6 +54,7 @@ const tabs: TabConfig[] = [
   { key: "effects", labelKey: "effects", icon: "M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" },
   { key: "stickers", labelKey: "stickers", icon: "M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
   { key: "text", labelKey: "text.title", icon: "M4 6h16M4 12h8m-8 6h16" },
+  { key: "shapes", labelKey: "shape.title", icon: "M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z" },
   { key: "subtitles", labelKey: "subtitles", icon: "M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" },
   { key: "download", labelKey: "download.title", icon: "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" },
   { key: "analyzer", labelKey: "analyzer.title", icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" },
@@ -84,6 +87,8 @@ function SidebarComponent() {
         return <StickerLibrary />;
       case "text":
         return <TextLibrary />;
+      case "shapes":
+        return <ShapeLibrary />;
       case "subtitles":
         return <SubtitleEditor />;
       case "download":

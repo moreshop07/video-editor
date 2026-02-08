@@ -137,6 +137,18 @@ export interface Clip {
   textAnimationIn?: string;       // Entrance animation preset name
   textAnimationOut?: string;      // Exit animation preset name
 
+  // Text stroke (outline)
+  textStroke?: string;            // Stroke color, default '#000000'
+  textStrokeWidth?: number;       // Stroke width in px, default 0
+
+  // Shape-specific properties
+  shapeType?: 'rectangle' | 'circle' | 'triangle' | 'star' | 'arrow' | 'line';
+  shapeFill?: string;             // Fill color, default '#3B82F6'
+  shapeFillOpacity?: number;      // 0-1, default 1
+  shapeStroke?: string;           // Stroke color, default '#FFFFFF'
+  shapeStrokeWidth?: number;      // Stroke width in px, default 0
+  shapeCornerRadius?: number;     // Corner radius in px, for rectangle
+
   // Keyframe animation
   keyframes?: KeyframeTracks;     // Animated property keyframes
 

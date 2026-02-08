@@ -55,6 +55,16 @@ export interface RenderableClip {
   textAlign?: string;
   backgroundColor?: string;
   backgroundOpacity?: number;
+  // Text stroke
+  textStroke?: string;
+  textStrokeWidth?: number;
+  // Shape properties
+  shapeType?: string;
+  shapeFill?: string;
+  shapeFillOpacity?: number;
+  shapeStroke?: string;
+  shapeStrokeWidth?: number;
+  shapeCornerRadius?: number;
   // Keyframe animation
   keyframes?: KeyframeTracks;
   // PiP border

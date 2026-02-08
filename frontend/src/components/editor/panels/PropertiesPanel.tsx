@@ -23,6 +23,7 @@ import { TransitionPicker } from '@/components/editor/timeline/TransitionPicker'
 import { KeyframeEditor } from './KeyframeEditor';
 import { SpeedRampEditor } from './SpeedRampEditor';
 import { BLEND_MODES, BACKGROUND_PRESETS } from '@/effects/blendModeDefinitions';
+import { SHAPE_DEFINITIONS } from '@/effects/shapeDefinitions';
 
 function PropertiesPanelComponent() {
   const { t } = useTranslation();
@@ -519,8 +520,134 @@ function PropertiesPanelComponent() {
         </div>
       )}
 
+      {/* Shape controls */}
+      {isTextType && clip.shapeType && (
+        <div className="flex flex-col gap-3">
+          {/* Shape type */}
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] text-[var(--color-text-secondary)]">
+              {t('shape.shapeType')}
+            </label>
+            <select
+              value={clip.shapeType}
+              onChange={(e) => handleUpdate('shapeType', e.target.value)}
+              className="rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1 text-xs text-[var(--color-text)] outline-none focus:border-[var(--color-primary)]"
+            >
+              {SHAPE_DEFINITIONS.map((s) => (
+                <option key={s.id} value={s.id}>{t(s.labelKey)}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Fill color */}
+          <div className="flex items-center gap-2">
+            <label className="text-[10px] text-[var(--color-text-secondary)]">
+              {t('shape.fill')}
+            </label>
+            <input
+              type="color"
+              value={clip.shapeFill ?? '#3B82F6'}
+              onChange={(e) => handleUpdate('shapeFill', e.target.value)}
+              className="h-6 w-10 cursor-pointer rounded border border-[var(--color-border)]"
+            />
+          </div>
+
+          {/* Fill opacity */}
+          <PropertySlider
+            label={t('shape.fillOpacity')}
+            value={clip.shapeFillOpacity ?? 1}
+            min={0}
+            max={1}
+            step={0.05}
+            onChange={(v) => handleUpdate('shapeFillOpacity', v)}
+            format={(v) => `${Math.round(v * 100)}%`}
+          />
+
+          {/* Stroke color */}
+          <div className="flex items-center gap-2">
+            <label className="text-[10px] text-[var(--color-text-secondary)]">
+              {t('shape.stroke')}
+            </label>
+            <input
+              type="color"
+              value={clip.shapeStroke ?? '#FFFFFF'}
+              onChange={(e) => handleUpdate('shapeStroke', e.target.value)}
+              className="h-6 w-10 cursor-pointer rounded border border-[var(--color-border)]"
+            />
+          </div>
+
+          {/* Stroke width */}
+          <PropertySlider
+            label={t('shape.strokeWidth')}
+            value={clip.shapeStrokeWidth ?? 0}
+            min={0}
+            max={20}
+            step={1}
+            onChange={(v) => handleUpdate('shapeStrokeWidth', v)}
+            format={(v) => `${v}px`}
+          />
+
+          {/* Corner radius (rectangle only) */}
+          {clip.shapeType === 'rectangle' && (
+            <PropertySlider
+              label={t('shape.cornerRadius')}
+              value={clip.shapeCornerRadius ?? 0}
+              min={0}
+              max={50}
+              step={1}
+              onChange={(v) => handleUpdate('shapeCornerRadius', v)}
+              format={(v) => `${v}px`}
+            />
+          )}
+
+          {/* Transform section */}
+          <div className="text-[10px] font-medium uppercase tracking-wider text-[var(--color-text-secondary)] mt-2">
+            {t('properties.transform')}
+          </div>
+          <PropertySlider
+            label={t('properties.positionX')}
+            value={clip.positionX ?? 0.5}
+            min={0}
+            max={1}
+            step={0.01}
+            onChange={(v) => handleUpdate('positionX', v)}
+            format={(v) => `${Math.round(v * 100)}%`}
+          />
+          <PropertySlider
+            label={t('properties.positionY')}
+            value={clip.positionY ?? 0.5}
+            min={0}
+            max={1}
+            step={0.01}
+            onChange={(v) => handleUpdate('positionY', v)}
+            format={(v) => `${Math.round(v * 100)}%`}
+          />
+          <PropertySlider
+            label={t('properties.scale')}
+            value={clip.scaleX ?? 1}
+            min={0.1}
+            max={3}
+            step={0.05}
+            onChange={(v) => {
+              handleUpdate('scaleX', v);
+              handleUpdate('scaleY', v);
+            }}
+            format={(v) => `${Math.round(v * 100)}%`}
+          />
+          <PropertySlider
+            label={t('properties.rotation')}
+            value={clip.rotation ?? 0}
+            min={0}
+            max={360}
+            step={1}
+            onChange={(v) => handleUpdate('rotation', v)}
+            format={(v) => `${v}°`}
+          />
+        </div>
+      )}
+
       {/* Text controls */}
-      {isTextType && (
+      {isTextType && !clip.shapeType && (
         <div className="flex flex-col gap-3">
           {/* Text content */}
           <div className="flex flex-col gap-1">
@@ -576,6 +703,28 @@ function PropertiesPanelComponent() {
               className="h-6 w-10 cursor-pointer rounded border border-[var(--color-border)]"
             />
           </div>
+
+          {/* Text stroke (outline) */}
+          <div className="flex items-center gap-2">
+            <label className="text-[10px] text-[var(--color-text-secondary)]">
+              {t('text.textStrokeColor')}
+            </label>
+            <input
+              type="color"
+              value={clip.textStroke ?? '#000000'}
+              onChange={(e) => handleUpdate('textStroke', e.target.value)}
+              className="h-6 w-10 cursor-pointer rounded border border-[var(--color-border)]"
+            />
+          </div>
+          <PropertySlider
+            label={t('text.textStrokeWidth')}
+            value={clip.textStrokeWidth ?? 0}
+            min={0}
+            max={10}
+            step={0.5}
+            onChange={(v) => handleUpdate('textStrokeWidth', v)}
+            format={(v) => `${v}px`}
+          />
 
           {/* Font weight */}
           <div className="flex items-center gap-2">

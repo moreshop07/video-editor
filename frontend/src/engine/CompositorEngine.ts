@@ -18,6 +18,7 @@ import { HTMLVideoPool } from './fallback/HTMLVideoPool';
 import { buildCanvasFilterString } from '@/effects/buildCanvasFilter';
 import { TransitionRenderer } from './TransitionRenderer';
 import { TextRenderer } from './TextRenderer';
+import { ShapeRenderer } from './ShapeRenderer';
 import { ChromaKeyProcessor } from './ChromaKeyProcessor';
 import { ColorGradingProcessor } from './ColorGradingProcessor';
 import { getInterpolatedValue } from '@/utils/keyframeUtils';
@@ -653,7 +654,41 @@ export class CompositorEngine {
     try {
       let frame: ImageBitmap | null = null;
 
-      if (isText) {
+      if (isText && clip.shapeType) {
+        // Render shape clip using ShapeRenderer
+        frame = await ShapeRenderer.render({
+          shapeType: clip.shapeType,
+          fill: clip.shapeFill || '#3B82F6',
+          fillOpacity: clip.shapeFillOpacity ?? 1,
+          stroke: clip.shapeStroke || '#FFFFFF',
+          strokeWidth: clip.shapeStrokeWidth || 0,
+          cornerRadius: clip.shapeCornerRadius || 0,
+          canvasWidth: this.config.width,
+          canvasHeight: this.config.height,
+        });
+
+        if (!frame) return null;
+
+        const shapeSize = ShapeRenderer.measureShape(clip.shapeType, this.config.width, this.config.height);
+        const w = shapeSize.width * scaleX;
+        const h = shapeSize.height * scaleY;
+        const px = positionX * this.config.width - w / 2;
+        const py = positionY * this.config.height - h / 2;
+
+        return {
+          type: 'text',
+          frame,
+          opacity,
+          blendMode: clip.filters?.blendMode,
+          transform: {
+            x: px,
+            y: py,
+            width: w,
+            height: h,
+            rotation,
+          },
+        };
+      } else if (isText) {
         // Render text clip using TextRenderer
         frame = await TextRenderer.render({
           text: clip.textContent || '',
@@ -665,6 +700,8 @@ export class CompositorEngine {
           backgroundColor: clip.backgroundColor,
           backgroundOpacity: clip.backgroundOpacity,
           textRevealProgress,
+          textStroke: clip.textStroke,
+          textStrokeWidth: clip.textStrokeWidth,
           canvasWidth: this.config.width,
           canvasHeight: this.config.height,
         });
@@ -688,6 +725,7 @@ export class CompositorEngine {
           type: 'text',
           frame,
           opacity,
+          blendMode: clip.filters?.blendMode,
           transform: {
             x: px,
             y: py,

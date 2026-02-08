@@ -298,7 +298,26 @@
     "right": "Right",
     "backgroundColor": "Background",
     "backgroundOpacity": "Background Opacity",
-    "placeholder": "Enter text..."
+    "placeholder": "Enter text...",
+    "textStroke": "Text Outline",
+    "textStrokeWidth": "Outline Width",
+    "textStrokeColor": "Outline Color"
+  },
+  "shape": {
+    "title": "Shapes",
+    "addShape": "Click a shape to add it to the timeline",
+    "rectangle": "Rectangle",
+    "circle": "Circle",
+    "triangle": "Triangle",
+    "star": "Star",
+    "arrow": "Arrow",
+    "line": "Line",
+    "fill": "Fill Color",
+    "fillOpacity": "Fill Opacity",
+    "stroke": "Stroke Color",
+    "strokeWidth": "Stroke Width",
+    "cornerRadius": "Corner Radius",
+    "shapeType": "Shape Type"
   },
   "transition": {
     "title": "Transition",

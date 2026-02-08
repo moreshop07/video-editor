@@ -8,6 +8,8 @@ export interface TextRenderOptions {
   backgroundColor?: string;
   backgroundOpacity?: number;
   textRevealProgress?: number;
+  textStroke?: string;
+  textStrokeWidth?: number;
   canvasWidth: number;
   canvasHeight: number;
 }
@@ -28,6 +30,8 @@ export class TextRenderer {
       backgroundColor,
       backgroundOpacity = 0,
       textRevealProgress = 1,
+      textStroke,
+      textStrokeWidth = 0,
       canvasWidth,
       canvasHeight,
     } = options;
@@ -102,6 +106,13 @@ export class TextRenderer {
     for (let i = 0; i < lines.length; i++) {
       const drawText = i < visibleLines.length ? visibleLines[i] : '';
       if (drawText) {
+        // Draw stroke before fill so outline appears behind text
+        if (textStrokeWidth > 0) {
+          ctx.strokeStyle = textStroke || '#000000';
+          ctx.lineWidth = textStrokeWidth * 2; // doubled because half is covered by fill
+          ctx.lineJoin = 'round';
+          ctx.strokeText(drawText, textX, yOffset);
+        }
         ctx.fillText(drawText, textX, yOffset);
       }
       yOffset += lineHeight;
