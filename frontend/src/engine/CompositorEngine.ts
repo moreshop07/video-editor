@@ -614,6 +614,7 @@ export class CompositorEngine {
     const scaleY = this.getInterpolatedClipProperty(clip, 'scaleY', clipTimeMs);
     const rotation = this.getInterpolatedClipProperty(clip, 'rotation', clipTimeMs);
     const opacity = this.getInterpolatedClipProperty(clip, 'opacity', clipTimeMs);
+    const textRevealProgress = this.getInterpolatedClipProperty(clip, 'textRevealProgress', clipTimeMs);
 
     try {
       let frame: ImageBitmap | null = null;
@@ -629,6 +630,7 @@ export class CompositorEngine {
           textAlign: (clip.textAlign as CanvasTextAlign) || 'center',
           backgroundColor: clip.backgroundColor,
           backgroundOpacity: clip.backgroundOpacity,
+          textRevealProgress,
           canvasWidth: this.config.width,
           canvasHeight: this.config.height,
         });

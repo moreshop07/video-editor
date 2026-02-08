@@ -30,6 +30,7 @@ const ANIMATABLE_PROPERTIES: AnimatableProperty[] = [
   'scaleY',
   'rotation',
   'opacity',
+  'textRevealProgress',
 ];
 
 export function KeyframeEditor({

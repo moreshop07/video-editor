@@ -7,6 +7,7 @@ export interface TextRenderOptions {
   textAlign: CanvasTextAlign;
   backgroundColor?: string;
   backgroundOpacity?: number;
+  textRevealProgress?: number;
   canvasWidth: number;
   canvasHeight: number;
 }
@@ -26,11 +27,18 @@ export class TextRenderer {
       textAlign,
       backgroundColor,
       backgroundOpacity = 0,
+      textRevealProgress = 1,
       canvasWidth,
       canvasHeight,
     } = options;
 
     if (!text.trim()) return null;
+
+    // For typewriter effect: compute visible text (keep full text for background sizing)
+    const revealProgress = Math.max(0, Math.min(1, textRevealProgress));
+    const visibleText = revealProgress >= 1
+      ? text
+      : text.substring(0, Math.ceil(text.length * revealProgress));
 
     // Create off-screen canvas
     const canvas = new OffscreenCanvas(canvasWidth, canvasHeight);
@@ -88,10 +96,14 @@ export class TextRenderer {
     ctx.shadowOffsetX = 2;
     ctx.shadowOffsetY = 2;
 
-    // Draw each line
+    // Draw each line (use visibleText for typewriter effect)
+    const visibleLines = visibleText.split('\n');
     let yOffset = textY - (totalTextHeight / 2) + lineHeight / 2;
-    for (const line of lines) {
-      ctx.fillText(line, textX, yOffset);
+    for (let i = 0; i < lines.length; i++) {
+      const drawText = i < visibleLines.length ? visibleLines[i] : '';
+      if (drawText) {
+        ctx.fillText(drawText, textX, yOffset);
+      }
       yOffset += lineHeight;
     }
 

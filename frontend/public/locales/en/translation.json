@@ -388,6 +388,24 @@
     "easeOut": "Ease Out",
     "easeInOut": "Ease In-Out"
   },
+  "textAnimation": {
+    "title": "Text Animation",
+    "entrance": "Entrance",
+    "exit": "Exit",
+    "none": "None",
+    "fadeIn": "Fade In",
+    "slideLeft": "Slide Left",
+    "slideRight": "Slide Right",
+    "slideUp": "Slide Up",
+    "slideDown": "Slide Down",
+    "zoomIn": "Zoom In",
+    "zoomOut": "Zoom Out",
+    "bounce": "Bounce",
+    "typewriter": "Typewriter",
+    "spin": "Spin",
+    "expand": "Expand",
+    "reveal": "Reveal"
+  },
   "aiVideo": {
     "title": "AI Video",
     "textToVideo": "Text to Video",

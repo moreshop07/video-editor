@@ -39,6 +39,10 @@ export interface Clip {
   backgroundColor?: string;       // Optional background color
   backgroundOpacity?: number;     // 0-1, default 0 (no background)
 
+  // Text animation presets
+  textAnimationIn?: string;       // Entrance animation preset name
+  textAnimationOut?: string;      // Exit animation preset name
+
   // Keyframe animation
   keyframes?: KeyframeTracks;     // Animated property keyframes
 
@@ -100,6 +104,8 @@ export interface ProjectData {
         textAlign?: 'left' | 'center' | 'right';
         backgroundColor?: string;
         backgroundOpacity?: number;
+        textAnimationIn?: string;
+        textAnimationOut?: string;
         keyframes?: KeyframeTracks;
         pipBorder?: PipBorder;
       }>;
@@ -157,6 +163,8 @@ export function serializeForSave(state: {
           textAlign: c.textAlign,
           backgroundColor: c.backgroundColor,
           backgroundOpacity: c.backgroundOpacity,
+          textAnimationIn: c.textAnimationIn,
+          textAnimationOut: c.textAnimationOut,
           // Keyframe animation
           keyframes: c.keyframes,
           // PiP border
@@ -574,6 +582,8 @@ export const useTimelineStore = create<TimelineState>()(
               textAlign: c.textAlign,
               backgroundColor: c.backgroundColor,
               backgroundOpacity: c.backgroundOpacity,
+              textAnimationIn: c.textAnimationIn,
+              textAnimationOut: c.textAnimationOut,
               // Keyframe animation
               keyframes: c.keyframes,
               // PiP border

@@ -9,7 +9,8 @@ export type AnimatableProperty =
   | 'scaleX'
   | 'scaleY'
   | 'rotation'
-  | 'opacity';
+  | 'opacity'
+  | 'textRevealProgress';
 
 export type EasingType = 'linear' | 'easeIn' | 'easeOut' | 'easeInOut';
 
@@ -39,6 +40,7 @@ export const ANIMATABLE_PROPERTY_DEFAULTS: Record<AnimatableProperty, number> = 
   scaleY: 1,
   rotation: 0,
   opacity: 1,
+  textRevealProgress: 1,
 };
 
 // Property display info for UI
@@ -86,6 +88,13 @@ export const ANIMATABLE_PROPERTY_INFO: Record<AnimatableProperty, {
   },
   opacity: {
     labelKey: 'properties.opacity',
+    min: 0,
+    max: 1,
+    step: 0.01,
+    format: (v) => `${Math.round(v * 100)}%`,
+  },
+  textRevealProgress: {
+    labelKey: 'textAnimation.reveal',
     min: 0,
     max: 1,
     step: 0.01,

@@ -388,6 +388,24 @@
     "easeOut": "漸出",
     "easeInOut": "漸入漸出"
   },
+  "textAnimation": {
+    "title": "文字動畫",
+    "entrance": "進場",
+    "exit": "離場",
+    "none": "無",
+    "fadeIn": "淡入",
+    "slideLeft": "左滑入",
+    "slideRight": "右滑入",
+    "slideUp": "上滑入",
+    "slideDown": "下滑入",
+    "zoomIn": "放大進入",
+    "zoomOut": "縮小進入",
+    "bounce": "彈跳",
+    "typewriter": "打字機",
+    "spin": "旋轉",
+    "expand": "展開",
+    "reveal": "顯示進度"
+  },
   "aiVideo": {
     "title": "AI 影片",
     "textToVideo": "文字生成影片",

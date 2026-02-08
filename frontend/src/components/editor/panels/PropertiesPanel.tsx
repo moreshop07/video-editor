@@ -11,13 +11,20 @@ import type { AnimatableProperty } from '@/types/keyframes';
 import { ANIMATABLE_PROPERTY_DEFAULTS } from '@/types/keyframes';
 import { pipPresets } from '@/effects/pipPresets';
 import type { PipBorder } from '@/engine/types';
+import {
+  TEXT_ANIMATION_PRESET_NAMES,
+  TEXT_ANIMATION_PRESETS,
+  applyTextAnimation,
+  removeTextAnimation,
+  type TextAnimationPresetName,
+} from '@/engine/textAnimationPresets';
 import AudioProcessingPanel from '@/components/audio/AudioProcessingPanel';
 import { TransitionPicker } from '@/components/editor/timeline/TransitionPicker';
 import { KeyframeEditor } from './KeyframeEditor';
 
 function PropertiesPanelComponent() {
   const { t } = useTranslation();
-  const { tracks, selectedClipId, updateClip, setClipTransition, updateTrackAudio } = useTimelineStore();
+  const { tracks, selectedClipId, updateClip, setClipTransition, updateTrackAudio, setClipKeyframe, removeClipKeyframe } = useTimelineStore();
 
   const selectedData = useMemo<{
     clip: Clip;
@@ -477,6 +484,9 @@ function PropertiesPanelComponent() {
             format={(v) => `${Math.round(v * 100)}%`}
           />
 
+          {/* Text Animation Presets */}
+          <TextAnimationSection clip={clip} trackId={track.id} />
+
           {/* Transform section */}
           <div className="text-[10px] font-medium uppercase tracking-wider text-[var(--color-text-secondary)] mt-2">
             {t('properties.transform')}
@@ -854,6 +864,114 @@ function PropertySlider({
         onChange={(e) => onChange(Number(e.target.value))}
         className="h-1 w-full cursor-pointer appearance-none rounded bg-white/10 accent-[var(--accent)]"
       />
+    </div>
+  );
+}
+
+// Text Animation Preset controls
+function TextAnimationSection({ clip, trackId }: { clip: Clip; trackId: string }) {
+  const { t } = useTranslation();
+  const { updateClip, setClipKeyframe, removeClipKeyframe } = useTimelineStore();
+
+  const clipDuration = clip.endTime - clip.startTime;
+  const animDuration = 500; // ms
+
+  const handleSelect = useCallback(
+    (preset: TextAnimationPresetName, direction: 'in' | 'out') => {
+      const current = direction === 'in' ? clip.textAnimationIn : clip.textAnimationOut;
+
+      if (preset === 'none' || preset === current) {
+        // Remove animation
+        removeTextAnimation(
+          clip.id, trackId, direction, clipDuration, animDuration,
+          clip.keyframes, { removeClipKeyframe, updateClip },
+        );
+      } else {
+        // Remove old first, then apply new
+        if (current) {
+          removeTextAnimation(
+            clip.id, trackId, direction, clipDuration, animDuration,
+            clip.keyframes, { removeClipKeyframe, updateClip },
+          );
+        }
+        applyTextAnimation(
+          clip.id, trackId, preset, direction, clipDuration, animDuration,
+          { setClipKeyframe, removeClipKeyframe, updateClip },
+        );
+      }
+    },
+    [clip, trackId, clipDuration, setClipKeyframe, removeClipKeyframe, updateClip],
+  );
+
+  return (
+    <div className="flex flex-col gap-2 mt-2">
+      <div className="text-[10px] font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">
+        {t('textAnimation.title')}
+      </div>
+
+      {/* Entrance */}
+      <div className="flex flex-col gap-1">
+        <label className="text-[10px] text-[var(--color-text-secondary)]">
+          {t('textAnimation.entrance')}
+        </label>
+        <div className="flex flex-wrap gap-1">
+          <button
+            onClick={() => handleSelect('none', 'in')}
+            className={`rounded px-1.5 py-1 text-[9px] transition-colors ${
+              !clip.textAnimationIn
+                ? 'bg-[var(--accent)] text-white'
+                : 'bg-[var(--color-surface)] text-[var(--color-text-secondary)] border border-[var(--color-border)]'
+            }`}
+          >
+            {t('textAnimation.none')}
+          </button>
+          {TEXT_ANIMATION_PRESET_NAMES.map((name) => (
+            <button
+              key={name}
+              onClick={() => handleSelect(name, 'in')}
+              className={`rounded px-1.5 py-1 text-[9px] transition-colors ${
+                clip.textAnimationIn === name
+                  ? 'bg-[var(--accent)] text-white'
+                  : 'bg-[var(--color-surface)] text-[var(--color-text-secondary)] border border-[var(--color-border)] hover:border-[var(--accent)]'
+              }`}
+            >
+              {t(TEXT_ANIMATION_PRESETS[name].labelKey)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Exit */}
+      <div className="flex flex-col gap-1">
+        <label className="text-[10px] text-[var(--color-text-secondary)]">
+          {t('textAnimation.exit')}
+        </label>
+        <div className="flex flex-wrap gap-1">
+          <button
+            onClick={() => handleSelect('none', 'out')}
+            className={`rounded px-1.5 py-1 text-[9px] transition-colors ${
+              !clip.textAnimationOut
+                ? 'bg-[var(--accent)] text-white'
+                : 'bg-[var(--color-surface)] text-[var(--color-text-secondary)] border border-[var(--color-border)]'
+            }`}
+          >
+            {t('textAnimation.none')}
+          </button>
+          {TEXT_ANIMATION_PRESET_NAMES.map((name) => (
+            <button
+              key={name}
+              onClick={() => handleSelect(name, 'out')}
+              className={`rounded px-1.5 py-1 text-[9px] transition-colors ${
+                clip.textAnimationOut === name
+                  ? 'bg-[var(--accent)] text-white'
+                  : 'bg-[var(--color-surface)] text-[var(--color-text-secondary)] border border-[var(--color-border)] hover:border-[var(--accent)]'
+              }`}
+            >
+              {t(TEXT_ANIMATION_PRESETS[name].labelKey)}
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
