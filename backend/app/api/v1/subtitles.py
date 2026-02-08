@@ -20,7 +20,12 @@ from app.schemas.subtitle import (
     SubtitleTrackResponse,
     SubtitleTranslateRequest,
 )
-from app.workers.tasks import transcribe_audio, translate_subtitles
+from app.workers.tasks import (
+    transcribe_audio,
+    transcribe_local_task,
+    translate_claude,
+    translate_subtitles,
+)
 
 router = APIRouter(prefix="/subtitles", tags=["subtitles"])
 
@@ -84,22 +89,26 @@ async def generate_subtitles(
     # Verify project ownership
     await _verify_project_ownership(body.project_id, current_user, db)
 
+    use_local = body.provider == "whisper_local"
+    job_type = JobType.TRANSCRIBE_LOCAL.value if use_local else JobType.TRANSCRIBE.value
+
     job = ProcessingJob(
         user_id=current_user.id,
         project_id=body.project_id,
-        job_type=JobType.TRANSCRIBE.value,
+        job_type=job_type,
         status=JobStatus.PENDING.value,
         input_params={
             "asset_id": body.asset_id,
             "language": body.language,
+            "provider": body.provider,
         },
     )
     db.add(job)
     await db.flush()
     await db.refresh(job)
 
-    # Dispatch Celery task (job.input_params carries asset_id and language)
-    task = transcribe_audio.delay(job.id)
+    celery_task = transcribe_local_task if use_local else transcribe_audio
+    task = celery_task.delay(job.id)
     job.celery_task_id = task.id
     await db.flush()
     await db.refresh(job)
@@ -120,23 +129,27 @@ async def translate_subtitle_track(
 
     track = await _get_track_for_user(body.track_id, current_user, db)
 
+    use_claude = body.provider == "claude"
+    job_type = JobType.TRANSLATE_CLAUDE.value if use_claude else JobType.TRANSLATE.value
+
     job = ProcessingJob(
         user_id=current_user.id,
         project_id=track.project_id,
-        job_type=JobType.TRANSLATE.value,
+        job_type=job_type,
         status=JobStatus.PENDING.value,
         input_params={
             "track_id": body.track_id,
             "target_language": body.target_language,
             "context_hint": body.context_hint,
+            "provider": body.provider,
         },
     )
     db.add(job)
     await db.flush()
     await db.refresh(job)
 
-    # Dispatch Celery task (job.input_params carries track_id and target_language)
-    task = translate_subtitles.delay(job.id)
+    celery_task = translate_claude if use_claude else translate_subtitles
+    task = celery_task.delay(job.id)
     job.celery_task_id = task.id
     await db.flush()
     await db.refresh(job)

@@ -8,12 +8,14 @@ class SubtitleGenerateRequest(BaseModel):
     project_id: int
     asset_id: int
     language: str = "zh-TW"
+    provider: str = "openai"  # "openai" or "whisper_local"
 
 
 class SubtitleTranslateRequest(BaseModel):
     track_id: int
     target_language: str = "en"
     context_hint: Optional[str] = None
+    provider: str = "gpt4"  # "gpt4" or "claude"
 
 
 class SubtitleSegmentResponse(BaseModel):

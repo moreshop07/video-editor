@@ -21,6 +21,13 @@ class JobType(str, enum.Enum):
     TRANSLATE = "translate"
     NOISE_REDUCTION = "noise_reduction"
     NORMALIZE = "normalize"
+    DOWNLOAD = "download"
+    ANALYZE_VIDEO = "analyze_video"
+    TRANSCRIBE_LOCAL = "transcribe_local"
+    TRANSLATE_CLAUDE = "translate_claude"
+    GENERATE_TTS = "generate_tts"
+    AUTO_EDIT = "auto_edit"
+    GENERATE_VOICEOVER = "generate_voiceover"
 
 
 class JobStatus(str, enum.Enum):

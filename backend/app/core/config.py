@@ -34,6 +34,19 @@ class Settings(BaseSettings):
     # --- CORS ---------------------------------------------------------------
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
 
+    # --- Anthropic (Claude) -------------------------------------------------
+    ANTHROPIC_API_KEY: Optional[str] = None
+
+    # --- Local Whisper ------------------------------------------------------
+    WHISPER_MODEL: str = "base"
+
+    # --- Video Download -----------------------------------------------------
+    DOWNLOAD_DIR: str = "/tmp/downloads"
+
+    # --- TTS (Edge TTS) -----------------------------------------------------
+    TTS_VOICE_ZH: str = "zh-TW-HsiaoChenNeural"
+    TTS_VOICE_EN: str = "en-US-AriaNeural"
+
     # --- External media APIs ------------------------------------------------
     PEXELS_API_KEY: Optional[str] = None
     PIXABAY_API_KEY: Optional[str] = None

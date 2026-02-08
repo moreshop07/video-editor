@@ -186,7 +186,10 @@
     "exportSRT": "Export SRT",
     "exportVTT": "Export VTT",
     "deleteTrack": "Delete Track",
-    "empty": "No subtitles yet. Generate subtitles from your video."
+    "empty": "No subtitles yet. Generate subtitles from your video.",
+    "transcribeProvider": "Transcribe",
+    "translateProvider": "Translate",
+    "localWhisper": "Local Whisper"
   },
   "asset": {
     "all": "All",
@@ -269,6 +272,52 @@
     "zoomIn": "Zoom In",
     "zoomOut": "Zoom Out",
     "duration": "Duration"
+  },
+  "download": {
+    "title": "Download",
+    "urlPlaceholder": "Paste video URL (YouTube, TikTok, Instagram...)",
+    "start": "Download",
+    "downloading": "Downloading...",
+    "completed": "Download completed",
+    "failed": "Download failed",
+    "platform": "Platform",
+    "history": "Downloaded Videos"
+  },
+  "analyzer": {
+    "title": "Analyzer",
+    "analyze": "Analyze",
+    "analyzing": "Analyzing...",
+    "selectAsset": "Select a video...",
+    "scenes": "Scenes",
+    "audio": "Audio",
+    "hooks": "Hooks",
+    "rhythm": "Rhythm",
+    "hookScore": "Hook Score",
+    "hasHook": "Has Hook",
+    "pace": "Pace",
+    "avgScene": "Avg Scene",
+    "sceneCount": "Scene Count",
+    "duration": "Duration",
+    "spectral": "Spectral"
+  },
+  "autoEdit": {
+    "title": "Auto Edit",
+    "silenceRemoval": "Silence Removal",
+    "jumpCut": "Jump Cut",
+    "start": "Start",
+    "processing": "Processing...",
+    "completed": "Auto edit completed!",
+    "failed": "Auto edit failed",
+    "selectAsset": "Select a video...",
+    "margin": "Margin"
+  },
+  "tts": {
+    "title": "Text to Speech",
+    "generate": "Generate",
+    "generating": "Generating...",
+    "placeholder": "Enter text for voiceover...",
+    "download": "Download Audio",
+    "failed": "TTS generation failed"
   },
   "template": {
     "title": "Start with a Template",

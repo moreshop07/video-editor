@@ -7,6 +7,9 @@ import MusicLibrary from "@/components/audio/MusicLibrary";
 import SoundEffectsLibrary from "@/components/audio/SoundEffectsLibrary";
 import StickerLibrary from "@/components/stickers/StickerLibrary";
 import { TextLibrary } from "@/components/text/TextLibrary";
+import VideoDownloadPanel from "@/components/download/VideoDownloadPanel";
+import VideoAnalyzerPanel from "@/components/analysis/VideoAnalyzerPanel";
+import AutoEditPanel from "@/components/autoedit/AutoEditPanel";
 
 type SidebarTab =
   | "assets"
@@ -15,7 +18,10 @@ type SidebarTab =
   | "effects"
   | "stickers"
   | "subtitles"
-  | "text";
+  | "text"
+  | "download"
+  | "analyzer"
+  | "autoEdit";
 
 interface TabConfig {
   key: SidebarTab;
@@ -31,6 +37,9 @@ const tabs: TabConfig[] = [
   { key: "stickers", labelKey: "stickers", icon: "M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" },
   { key: "text", labelKey: "text.title", icon: "M4 6h16M4 12h8m-8 6h16" },
   { key: "subtitles", labelKey: "subtitles", icon: "M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" },
+  { key: "download", labelKey: "download.title", icon: "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" },
+  { key: "analyzer", labelKey: "analyzer.title", icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" },
+  { key: "autoEdit", labelKey: "autoEdit.title", icon: "M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121m0 5.758a3 3 0 10-4.243 4.243 3 3 0 004.243-4.243zm0-5.758a3 3 0 10-4.243-4.243 3 3 0 004.243 4.243z" },
 ];
 
 function SidebarComponent() {
@@ -53,6 +62,12 @@ function SidebarComponent() {
         return <TextLibrary />;
       case "subtitles":
         return <SubtitleEditor />;
+      case "download":
+        return <VideoDownloadPanel />;
+      case "analyzer":
+        return <VideoAnalyzerPanel />;
+      case "autoEdit":
+        return <AutoEditPanel />;
       default:
         return null;
     }

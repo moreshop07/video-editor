@@ -186,7 +186,10 @@
     "exportSRT": "匯出 SRT",
     "exportVTT": "匯出 VTT",
     "deleteTrack": "刪除字幕軌",
-    "empty": "尚無字幕，從影片產生字幕。"
+    "empty": "尚無字幕，從影片產生字幕。",
+    "transcribeProvider": "轉錄引擎",
+    "translateProvider": "翻譯引擎",
+    "localWhisper": "本地 Whisper"
   },
   "asset": {
     "all": "全部",
@@ -269,6 +272,52 @@
     "zoomIn": "放大",
     "zoomOut": "縮小",
     "duration": "時長"
+  },
+  "download": {
+    "title": "下載影片",
+    "urlPlaceholder": "貼上影片網址（YouTube、TikTok、Instagram...）",
+    "start": "開始下載",
+    "downloading": "下載中...",
+    "completed": "下載完成",
+    "failed": "下載失敗",
+    "platform": "平台",
+    "history": "已下載影片"
+  },
+  "analyzer": {
+    "title": "影片分析",
+    "analyze": "分析",
+    "analyzing": "分析中...",
+    "selectAsset": "選擇影片...",
+    "scenes": "場景",
+    "audio": "音訊",
+    "hooks": "開場鉤子",
+    "rhythm": "節奏",
+    "hookScore": "鉤子分數",
+    "hasHook": "有鉤子",
+    "pace": "節奏感",
+    "avgScene": "平均場景",
+    "sceneCount": "場景數量",
+    "duration": "時長",
+    "spectral": "頻譜"
+  },
+  "autoEdit": {
+    "title": "自動剪輯",
+    "silenceRemoval": "移除靜音",
+    "jumpCut": "跳接剪輯",
+    "start": "開始",
+    "processing": "處理中...",
+    "completed": "自動剪輯完成！",
+    "failed": "自動剪輯失敗",
+    "selectAsset": "選擇影片...",
+    "margin": "邊距"
+  },
+  "tts": {
+    "title": "語音合成",
+    "generate": "產生語音",
+    "generating": "產生中...",
+    "placeholder": "輸入要合成語音的文字...",
+    "download": "下載音檔",
+    "failed": "語音合成失敗"
   },
   "template": {
     "title": "從範本開始",

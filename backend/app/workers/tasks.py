@@ -25,11 +25,14 @@ from app.core.storage import (
     minio_client,
     upload_file,
 )
-from app.models.asset import Asset
+from app.models.analysis import VideoAnalysis
+from app.models.asset import Asset, AssetType
+from app.models.download import DownloadedVideo
 from app.models.music import MusicTrack
 from app.models.processing import JobStatus, ProcessingJob
 from app.models.project import Project
 from app.models.subtitle import SubtitleSegment, SubtitleTrack
+from app.models.tts import TTSTrack
 from app.services import ai as ai_service
 from app.services import ffmpeg as ffmpeg_service
 from app.workers.celery_app import celery_app
@@ -823,6 +826,686 @@ def match_music(self, job_id: int) -> dict:
     except Exception as exc:
         session.rollback()
         logger.exception("match_music failed for job %s", job_id)
+        try:
+            if job:
+                _update_job_status(
+                    session, job, JobStatus.FAILED.value,
+                    error_message=str(exc)[:2000],
+                )
+        except Exception:
+            logger.exception("Failed to update job status to FAILED")
+        raise self.retry(exc=exc, countdown=60)
+    finally:
+        session.close()
+
+
+# =========================================================================
+# Task: download_video
+# =========================================================================
+
+@celery_app.task(name="app.workers.tasks.download_video", bind=True, max_retries=2)
+def download_video(self, job_id: int) -> dict:
+    """Download a video from URL using yt-dlp, upload to MinIO, and create
+    an asset record.
+    """
+    from app.services import downloader as dl_service
+
+    session = get_sync_session()
+    try:
+        job: ProcessingJob | None = session.get(ProcessingJob, job_id)
+        if job is None:
+            raise ValueError(f"Job {job_id} not found")
+
+        _update_job_status(session, job, JobStatus.PROCESSING.value, progress=0.0)
+
+        input_params = job.input_params or {}
+        url = input_params.get("url", "")
+        if not url:
+            raise ValueError("No url specified in input_params")
+
+        def _on_progress(pct: float) -> None:
+            _publish_progress(job_id, min(70.0, pct * 0.7), detail="Downloading...")
+
+        result = dl_service.download_video(url, progress_callback=_on_progress)
+        local_path = result["file_path"]
+
+        try:
+            _publish_progress(job_id, 75.0, detail="Uploading to storage...")
+
+            filename = os.path.basename(local_path)
+            object_name = f"downloads/{job.user_id}/{job_id}/{filename}"
+            with open(local_path, "rb") as f:
+                upload_file(
+                    settings.MINIO_BUCKET_ASSETS,
+                    object_name,
+                    f.read(),
+                    content_type="video/mp4",
+                )
+
+            file_path_minio = f"/{settings.MINIO_BUCKET_ASSETS}/{object_name}"
+            file_size = os.path.getsize(local_path)
+
+            _publish_progress(job_id, 90.0, detail="Creating asset record...")
+
+            asset = Asset(
+                user_id=job.user_id,
+                filename=filename,
+                original_filename=result.get("title", filename),
+                file_path=file_path_minio,
+                file_size=file_size,
+                mime_type="video/mp4",
+                asset_type=AssetType.VIDEO.value,
+                duration_ms=int((result.get("duration") or 0) * 1000),
+                width=result.get("metadata", {}).get("width"),
+                height=result.get("metadata", {}).get("height"),
+            )
+            session.add(asset)
+            session.flush()
+
+            downloaded = DownloadedVideo(
+                user_id=job.user_id,
+                source_url=url,
+                platform=result["platform"],
+                title=result.get("title"),
+                asset_id=asset.id,
+                metadata_info=result.get("metadata"),
+            )
+            session.add(downloaded)
+            session.commit()
+
+            _update_job_status(
+                session, job, JobStatus.COMPLETED.value,
+                progress=100.0,
+                result={
+                    "asset_id": asset.id,
+                    "download_id": downloaded.id,
+                    "title": result.get("title"),
+                    "platform": result["platform"],
+                    "duration": result.get("duration"),
+                },
+            )
+
+            process_asset_metadata.delay(asset.id)
+
+            return {"job_id": job_id, "asset_id": asset.id}
+
+        finally:
+            if os.path.exists(local_path):
+                os.unlink(local_path)
+
+    except Exception as exc:
+        session.rollback()
+        logger.exception("download_video failed for job %s", job_id)
+        try:
+            if job:
+                _update_job_status(
+                    session, job, JobStatus.FAILED.value,
+                    error_message=str(exc)[:2000],
+                )
+        except Exception:
+            logger.exception("Failed to update job status to FAILED")
+        raise self.retry(exc=exc, countdown=60)
+    finally:
+        session.close()
+
+
+# =========================================================================
+# Task: analyze_video
+# =========================================================================
+
+@celery_app.task(name="app.workers.tasks.analyze_video", bind=True, max_retries=2)
+def analyze_video(self, job_id: int) -> dict:
+    """Perform comprehensive video analysis: scenes, audio, hooks, rhythm."""
+    from app.services import analyzer as analyzer_service
+
+    session = get_sync_session()
+    try:
+        job: ProcessingJob | None = session.get(ProcessingJob, job_id)
+        if job is None:
+            raise ValueError(f"Job {job_id} not found")
+
+        _update_job_status(session, job, JobStatus.PROCESSING.value, progress=0.0)
+
+        input_params = job.input_params or {}
+        asset_id = input_params.get("asset_id")
+        if not asset_id:
+            raise ValueError("No asset_id specified in input_params")
+
+        asset: Asset | None = session.get(Asset, asset_id)
+        if asset is None:
+            raise ValueError(f"Asset {asset_id} not found")
+
+        local_path = _download_from_minio(asset.file_path)
+
+        try:
+            _publish_progress(job_id, 10.0, detail="Detecting scenes...")
+            scenes = analyzer_service.detect_scenes(local_path)
+
+            _publish_progress(job_id, 40.0, detail="Analyzing audio...")
+            audio_analysis = analyzer_service.analyze_audio(local_path)
+
+            _publish_progress(job_id, 60.0, detail="Analyzing hooks...")
+            hook_analysis = analyzer_service.analyze_hooks(local_path, scenes)
+
+            _publish_progress(job_id, 80.0, detail="Analyzing rhythm...")
+            rhythm_analysis = analyzer_service.analyze_rhythm(scenes)
+
+            _publish_progress(job_id, 90.0, detail="Saving analysis results...")
+
+            analysis = VideoAnalysis(
+                project_id=job.project_id,
+                asset_id=asset_id,
+                scenes=scenes,
+                audio_analysis=audio_analysis,
+                hook_analysis=hook_analysis,
+                rhythm_analysis=rhythm_analysis,
+            )
+            session.add(analysis)
+            session.commit()
+
+            _update_job_status(
+                session, job, JobStatus.COMPLETED.value,
+                progress=100.0,
+                result={
+                    "analysis_id": analysis.id,
+                    "scene_count": len(scenes),
+                    "bpm": audio_analysis.get("bpm"),
+                    "hook_score": hook_analysis.get("hook_score"),
+                    "pace": rhythm_analysis.get("pace"),
+                },
+            )
+
+            return {"job_id": job_id, "analysis_id": analysis.id}
+
+        finally:
+            if os.path.exists(local_path):
+                os.unlink(local_path)
+
+    except Exception as exc:
+        session.rollback()
+        logger.exception("analyze_video failed for job %s", job_id)
+        try:
+            if job:
+                _update_job_status(
+                    session, job, JobStatus.FAILED.value,
+                    error_message=str(exc)[:2000],
+                )
+        except Exception:
+            logger.exception("Failed to update job status to FAILED")
+        raise self.retry(exc=exc, countdown=120)
+    finally:
+        session.close()
+
+
+# =========================================================================
+# Task: transcribe_local
+# =========================================================================
+
+@celery_app.task(name="app.workers.tasks.transcribe_local_task", bind=True, max_retries=2)
+def transcribe_local_task(self, job_id: int) -> dict:
+    """Transcribe audio using the local Whisper model (no API key needed)."""
+    from app.services import whisper_local as whisper_service
+
+    session = get_sync_session()
+    try:
+        job: ProcessingJob | None = session.get(ProcessingJob, job_id)
+        if job is None:
+            raise ValueError(f"Job {job_id} not found")
+
+        _update_job_status(session, job, JobStatus.PROCESSING.value, progress=0.0)
+
+        input_params = job.input_params or {}
+        source_path = input_params.get("source_path", "")
+        language = input_params.get("language", "zh")
+        project_id = job.project_id
+
+        if not source_path:
+            raise ValueError("No source_path specified in input_params")
+        if not project_id:
+            raise ValueError("No project_id specified for transcription job")
+
+        local_path = _download_from_minio(source_path)
+
+        try:
+            _publish_progress(job_id, 10.0, detail="Loading Whisper model...")
+            _publish_progress(job_id, 20.0, detail="Transcribing with local Whisper...")
+
+            segments = whisper_service.transcribe_local(local_path, language=language)
+
+            _publish_progress(job_id, 85.0, detail="Saving subtitle records...")
+
+            track = SubtitleTrack(
+                project_id=project_id,
+                language=language,
+                label=f"Local Whisper ({language})",
+                is_auto_generated=True,
+            )
+            session.add(track)
+            session.flush()
+
+            for idx, seg in enumerate(segments):
+                segment = SubtitleSegment(
+                    track_id=track.id,
+                    index=idx,
+                    start_ms=int(seg["start"] * 1000),
+                    end_ms=int(seg["end"] * 1000),
+                    text=seg["text"],
+                )
+                session.add(segment)
+
+            session.commit()
+
+            _update_job_status(
+                session, job, JobStatus.COMPLETED.value,
+                progress=100.0,
+                result={
+                    "track_id": track.id,
+                    "segment_count": len(segments),
+                    "language": language,
+                    "provider": "whisper_local",
+                },
+            )
+
+            return {"job_id": job_id, "track_id": track.id, "segment_count": len(segments)}
+
+        finally:
+            if os.path.exists(local_path):
+                os.unlink(local_path)
+
+    except Exception as exc:
+        session.rollback()
+        logger.exception("transcribe_local_task failed for job %s", job_id)
+        try:
+            if job:
+                _update_job_status(
+                    session, job, JobStatus.FAILED.value,
+                    error_message=str(exc)[:2000],
+                )
+        except Exception:
+            logger.exception("Failed to update job status to FAILED")
+        raise self.retry(exc=exc, countdown=120)
+    finally:
+        session.close()
+
+
+# =========================================================================
+# Task: translate_claude
+# =========================================================================
+
+@celery_app.task(name="app.workers.tasks.translate_claude", bind=True, max_retries=2)
+def translate_claude(self, job_id: int) -> dict:
+    """Translate subtitle segments using Anthropic Claude."""
+    from app.services import claude as claude_service
+
+    session = get_sync_session()
+    try:
+        job: ProcessingJob | None = session.get(ProcessingJob, job_id)
+        if job is None:
+            raise ValueError(f"Job {job_id} not found")
+
+        _update_job_status(session, job, JobStatus.PROCESSING.value, progress=0.0)
+
+        input_params = job.input_params or {}
+        track_id = input_params.get("track_id")
+        source_lang = input_params.get("source_lang", "Chinese")
+        target_lang = input_params.get("target_lang", "English")
+
+        if not track_id:
+            raise ValueError("No track_id specified in input_params")
+
+        track: SubtitleTrack | None = session.get(SubtitleTrack, track_id)
+        if track is None:
+            raise ValueError(f"SubtitleTrack {track_id} not found")
+
+        segments = (
+            session.query(SubtitleSegment)
+            .filter(SubtitleSegment.track_id == track_id)
+            .order_by(SubtitleSegment.index)
+            .all()
+        )
+
+        if not segments:
+            _update_job_status(
+                session, job, JobStatus.COMPLETED.value,
+                progress=100.0,
+                result={"track_id": track_id, "translated_count": 0},
+            )
+            return {"job_id": job_id, "translated_count": 0}
+
+        _publish_progress(job_id, 10.0, detail="Translating with Claude...")
+
+        segment_dicts = [{"text": seg.text, "index": seg.index} for seg in segments]
+        translations = claude_service.translate_with_claude(
+            segment_dicts, source_lang=source_lang, target_lang=target_lang,
+        )
+
+        _publish_progress(job_id, 85.0, detail="Saving translations...")
+
+        for seg, translated_text in zip(segments, translations):
+            seg.translated_text = translated_text
+
+        session.commit()
+
+        _update_job_status(
+            session, job, JobStatus.COMPLETED.value,
+            progress=100.0,
+            result={
+                "track_id": track_id,
+                "translated_count": len(translations),
+                "provider": "claude",
+            },
+        )
+
+        return {"job_id": job_id, "track_id": track_id, "translated_count": len(translations)}
+
+    except Exception as exc:
+        session.rollback()
+        logger.exception("translate_claude failed for job %s", job_id)
+        try:
+            if job:
+                _update_job_status(
+                    session, job, JobStatus.FAILED.value,
+                    error_message=str(exc)[:2000],
+                )
+        except Exception:
+            logger.exception("Failed to update job status to FAILED")
+        raise self.retry(exc=exc, countdown=60)
+    finally:
+        session.close()
+
+
+# =========================================================================
+# Task: generate_tts
+# =========================================================================
+
+@celery_app.task(name="app.workers.tasks.generate_tts_task", bind=True, max_retries=2)
+def generate_tts_task(self, job_id: int) -> dict:
+    """Generate TTS audio from text using Edge TTS."""
+    from app.services import tts as tts_service
+
+    session = get_sync_session()
+    try:
+        job: ProcessingJob | None = session.get(ProcessingJob, job_id)
+        if job is None:
+            raise ValueError(f"Job {job_id} not found")
+
+        _update_job_status(session, job, JobStatus.PROCESSING.value, progress=0.0)
+
+        input_params = job.input_params or {}
+        text = input_params.get("text", "")
+        voice = input_params.get("voice")
+
+        if not text:
+            raise ValueError("No text specified in input_params")
+
+        _publish_progress(job_id, 20.0, detail="Generating TTS audio...")
+
+        local_path = tts_service.generate_tts(text, voice=voice)
+
+        try:
+            _publish_progress(job_id, 70.0, detail="Uploading TTS audio...")
+
+            filename = os.path.basename(local_path)
+            object_name = f"tts/{job.user_id}/{job_id}/{filename}"
+            with open(local_path, "rb") as f:
+                upload_file(
+                    settings.MINIO_BUCKET_ASSETS,
+                    object_name,
+                    f.read(),
+                    content_type="audio/mpeg",
+                )
+
+            download_url = get_presigned_url(
+                settings.MINIO_BUCKET_ASSETS, object_name, expires=86400,
+            )
+
+            _update_job_status(
+                session, job, JobStatus.COMPLETED.value,
+                progress=100.0,
+                result={
+                    "download_url": download_url,
+                    "object_path": f"/{settings.MINIO_BUCKET_ASSETS}/{object_name}",
+                    "voice": voice,
+                },
+            )
+
+            return {"job_id": job_id, "download_url": download_url}
+
+        finally:
+            if os.path.exists(local_path):
+                os.unlink(local_path)
+
+    except Exception as exc:
+        session.rollback()
+        logger.exception("generate_tts_task failed for job %s", job_id)
+        try:
+            if job:
+                _update_job_status(
+                    session, job, JobStatus.FAILED.value,
+                    error_message=str(exc)[:2000],
+                )
+        except Exception:
+            logger.exception("Failed to update job status to FAILED")
+        raise self.retry(exc=exc, countdown=30)
+    finally:
+        session.close()
+
+
+# =========================================================================
+# Task: auto_edit_video
+# =========================================================================
+
+@celery_app.task(name="app.workers.tasks.auto_edit_video", bind=True, max_retries=2)
+def auto_edit_video(self, job_id: int) -> dict:
+    """Apply auto-editing (silence removal or jump cut) to a video."""
+    from app.services import auto_edit as auto_edit_service
+
+    session = get_sync_session()
+    try:
+        job: ProcessingJob | None = session.get(ProcessingJob, job_id)
+        if job is None:
+            raise ValueError(f"Job {job_id} not found")
+
+        _update_job_status(session, job, JobStatus.PROCESSING.value, progress=0.0)
+
+        input_params = job.input_params or {}
+        source_path = input_params.get("source_path", "")
+        operation = input_params.get("operation", "silence_removal")
+
+        if not source_path:
+            raise ValueError("No source_path specified in input_params")
+
+        local_input = _download_from_minio(source_path)
+        local_output = tempfile.NamedTemporaryFile(
+            delete=False, suffix=Path(source_path).suffix or ".mp4",
+        ).name
+
+        try:
+            _publish_progress(job_id, 10.0, detail=f"Applying {operation}...")
+
+            if operation == "jump_cut":
+                auto_edit_service.jump_cut(local_input, local_output)
+            else:
+                margin = float(input_params.get("margin", 0.3))
+                auto_edit_service.remove_silence(local_input, local_output, margin=margin)
+
+            _publish_progress(job_id, 80.0, detail="Uploading processed video...")
+
+            filename = f"auto_edit_{operation}.mp4"
+            object_name = f"auto_edit/{job.user_id}/{job_id}/{filename}"
+            with open(local_output, "rb") as f:
+                upload_file(
+                    settings.MINIO_BUCKET_ASSETS,
+                    object_name,
+                    f.read(),
+                    content_type="video/mp4",
+                )
+
+            download_url = get_presigned_url(
+                settings.MINIO_BUCKET_ASSETS, object_name, expires=86400,
+            )
+
+            file_size = os.path.getsize(local_output)
+            asset = Asset(
+                user_id=job.user_id,
+                filename=filename,
+                original_filename=f"Auto-edited ({operation})",
+                file_path=f"/{settings.MINIO_BUCKET_ASSETS}/{object_name}",
+                file_size=file_size,
+                mime_type="video/mp4",
+                asset_type=AssetType.VIDEO.value,
+            )
+            session.add(asset)
+            session.flush()
+
+            _update_job_status(
+                session, job, JobStatus.COMPLETED.value,
+                progress=100.0,
+                result={
+                    "download_url": download_url,
+                    "asset_id": asset.id,
+                    "operation": operation,
+                },
+            )
+
+            process_asset_metadata.delay(asset.id)
+
+            return {"job_id": job_id, "asset_id": asset.id}
+
+        finally:
+            for p in (local_input, local_output):
+                if os.path.exists(p):
+                    os.unlink(p)
+
+    except Exception as exc:
+        session.rollback()
+        logger.exception("auto_edit_video failed for job %s", job_id)
+        try:
+            if job:
+                _update_job_status(
+                    session, job, JobStatus.FAILED.value,
+                    error_message=str(exc)[:2000],
+                )
+        except Exception:
+            logger.exception("Failed to update job status to FAILED")
+        raise self.retry(exc=exc, countdown=60)
+    finally:
+        session.close()
+
+
+# =========================================================================
+# Task: generate_voiceover
+# =========================================================================
+
+@celery_app.task(name="app.workers.tasks.generate_voiceover", bind=True, max_retries=2)
+def generate_voiceover(self, job_id: int) -> dict:
+    """Generate segment-by-segment TTS voiceover from subtitles, merge into
+    a single audio track, and upload.
+    """
+    from app.services import tts as tts_service
+
+    session = get_sync_session()
+    try:
+        job: ProcessingJob | None = session.get(ProcessingJob, job_id)
+        if job is None:
+            raise ValueError(f"Job {job_id} not found")
+
+        _update_job_status(session, job, JobStatus.PROCESSING.value, progress=0.0)
+
+        input_params = job.input_params or {}
+        track_id = input_params.get("track_id")
+        voice = input_params.get("voice")
+        project_id = job.project_id
+
+        if not track_id:
+            raise ValueError("No track_id specified in input_params")
+        if not project_id:
+            raise ValueError("No project_id specified for voiceover job")
+
+        segments = (
+            session.query(SubtitleSegment)
+            .filter(SubtitleSegment.track_id == track_id)
+            .order_by(SubtitleSegment.index)
+            .all()
+        )
+
+        if not segments:
+            _update_job_status(
+                session, job, JobStatus.COMPLETED.value,
+                progress=100.0,
+                result={"track_id": track_id, "segment_count": 0},
+            )
+            return {"job_id": job_id, "segment_count": 0}
+
+        _publish_progress(job_id, 10.0, detail="Generating segment voiceovers...")
+
+        seg_dicts = [
+            {"text": seg.text, "start": seg.start_ms / 1000.0, "end": seg.end_ms / 1000.0}
+            for seg in segments
+        ]
+
+        segment_results = tts_service.generate_segment_voiceover(seg_dicts, voice=voice)
+
+        _publish_progress(job_id, 60.0, detail="Merging voiceover segments...")
+
+        merged_output = tempfile.NamedTemporaryFile(delete=False, suffix=".m4a")
+        merged_output.close()
+
+        try:
+            tts_service.merge_voiceover_segments(segment_results, merged_output.name)
+
+            _publish_progress(job_id, 85.0, detail="Uploading voiceover...")
+
+            object_name = f"voiceover/{job.user_id}/{job_id}/voiceover.m4a"
+            with open(merged_output.name, "rb") as f:
+                upload_file(
+                    settings.MINIO_BUCKET_ASSETS,
+                    object_name,
+                    f.read(),
+                    content_type="audio/mp4",
+                )
+
+            download_url = get_presigned_url(
+                settings.MINIO_BUCKET_ASSETS, object_name, expires=86400,
+            )
+
+            tts_track = TTSTrack(
+                project_id=project_id,
+                voice=voice or settings.TTS_VOICE_ZH,
+                language="zh",
+                file_path=f"/{settings.MINIO_BUCKET_ASSETS}/{object_name}",
+                segments=[
+                    {"text": r["text"], "start": r["start"], "end": r["end"]}
+                    for r in segment_results
+                ],
+            )
+            session.add(tts_track)
+            session.commit()
+
+            _update_job_status(
+                session, job, JobStatus.COMPLETED.value,
+                progress=100.0,
+                result={
+                    "download_url": download_url,
+                    "tts_track_id": tts_track.id,
+                    "segment_count": len(segment_results),
+                    "voice": voice,
+                },
+            )
+
+            return {"job_id": job_id, "tts_track_id": tts_track.id}
+
+        finally:
+            if os.path.exists(merged_output.name):
+                os.unlink(merged_output.name)
+            for r in segment_results:
+                fp = r.get("file_path", "")
+                if fp and os.path.exists(fp):
+                    os.unlink(fp)
+
+    except Exception as exc:
+        session.rollback()
+        logger.exception("generate_voiceover failed for job %s", job_id)
         try:
             if job:
                 _update_job_status(

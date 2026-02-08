@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSubtitleStore } from '@/store/subtitleStore';
 import { useProjectStore, useTimelineStore } from '@/store';
@@ -57,6 +57,9 @@ export default function SubtitleEditor() {
     }
   }, [currentProject?.id, loadTracks]);
 
+  const [transcribeProvider, setTranscribeProvider] = useState<'openai' | 'whisper_local'>('openai');
+  const [translateProvider, setTranslateProvider] = useState<'gpt4' | 'claude'>('gpt4');
+
   const activeTrack = subtitleTracks.find((t) => t.id === activeTrackId);
 
   // Find first video/audio asset for subtitle generation
@@ -74,13 +77,13 @@ export default function SubtitleEditor() {
     if (!currentProject) return;
     const assetId = getFirstAssetId();
     if (!assetId) return;
-    generateSubtitles(currentProject.id, assetId);
-  }, [currentProject, getFirstAssetId, generateSubtitles]);
+    generateSubtitles(currentProject.id, assetId, transcribeProvider);
+  }, [currentProject, getFirstAssetId, generateSubtitles, transcribeProvider]);
 
   const handleTranslate = useCallback(() => {
     if (!activeTrackId) return;
-    translateTrack(activeTrackId);
-  }, [activeTrackId, translateTrack]);
+    translateTrack(activeTrackId, undefined, translateProvider);
+  }, [activeTrackId, translateTrack, translateProvider]);
 
   const handleDeleteTrack = useCallback(() => {
     if (!activeTrackId) return;
@@ -133,6 +136,32 @@ export default function SubtitleEditor() {
 
   return (
     <div className="flex flex-1 flex-col gap-2 overflow-hidden p-2">
+      {/* Provider toggles */}
+      <div className="flex flex-wrap gap-2">
+        <div className="flex items-center gap-1">
+          <span className="text-[9px] text-[var(--color-text-secondary)]">{t('subtitles.transcribeProvider')}:</span>
+          <select
+            value={transcribeProvider}
+            onChange={(e) => setTranscribeProvider(e.target.value as 'openai' | 'whisper_local')}
+            className="rounded border border-white/10 bg-white/5 px-1.5 py-0.5 text-[9px] text-[var(--color-text)] outline-none"
+          >
+            <option value="openai">OpenAI Whisper</option>
+            <option value="whisper_local">{t('subtitles.localWhisper')}</option>
+          </select>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-[9px] text-[var(--color-text-secondary)]">{t('subtitles.translateProvider')}:</span>
+          <select
+            value={translateProvider}
+            onChange={(e) => setTranslateProvider(e.target.value as 'gpt4' | 'claude')}
+            className="rounded border border-white/10 bg-white/5 px-1.5 py-0.5 text-[9px] text-[var(--color-text)] outline-none"
+          >
+            <option value="gpt4">GPT-4</option>
+            <option value="claude">Claude</option>
+          </select>
+        </div>
+      </div>
+
       {/* Action buttons */}
       <div className="flex flex-wrap gap-1">
         <button

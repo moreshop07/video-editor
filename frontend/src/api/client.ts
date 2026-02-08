@@ -117,9 +117,9 @@ export const audioProcessingApi = {
 
 // ---- Subtitle API ----
 export const subtitleApi = {
-  generate: (data: { project_id: number; asset_id: number; language?: string }) =>
+  generate: (data: { project_id: number; asset_id: number; language?: string; provider?: string }) =>
     apiClient.post('/subtitles/generate', data),
-  translate: (data: { track_id: number; target_language?: string; context_hint?: string }) =>
+  translate: (data: { track_id: number; target_language?: string; context_hint?: string; provider?: string }) =>
     apiClient.post('/subtitles/translate', data),
   listTracks: (projectId: number) =>
     apiClient.get(`/subtitles/tracks/${projectId}`),
@@ -147,6 +147,49 @@ export const stickerApi = {
   pack: (id: number) => apiClient.get(`/stickers/pack/${id}`),
   sticker: (id: number) => apiClient.get(`/stickers/${id}`),
   stickerUrl: (id: number) => `${API_BASE_URL}/stickers/${id}/file`,
+};
+
+// ---- Download API ----
+export const downloadApi = {
+  start: (url: string) =>
+    apiClient.post('/downloads/', { url }),
+  list: () =>
+    apiClient.get('/downloads/'),
+};
+
+// ---- Analysis API ----
+export const analysisApi = {
+  analyze: (assetId: number, projectId?: number) =>
+    apiClient.post('/analysis/', { asset_id: assetId, project_id: projectId }),
+  get: (assetId: number) =>
+    apiClient.get(`/analysis/${assetId}`),
+};
+
+// ---- TTS API ----
+export const ttsApi = {
+  generate: (text: string, voice?: string, projectId?: number) =>
+    apiClient.post('/tts/generate', { text, voice, project_id: projectId }),
+  voiceover: (trackId: number, projectId: number, voice?: string) =>
+    apiClient.post('/tts/voiceover', { track_id: trackId, project_id: projectId, voice }),
+  voices: () =>
+    apiClient.get('/tts/voices'),
+};
+
+// ---- Auto Edit API ----
+export const autoEditApi = {
+  silenceRemoval: (assetId: number, margin?: number, projectId?: number) =>
+    apiClient.post('/auto-edit/silence-removal', {
+      asset_id: assetId,
+      operation: 'silence_removal',
+      margin: margin ?? 0.3,
+      project_id: projectId,
+    }),
+  jumpCut: (assetId: number, projectId?: number) =>
+    apiClient.post('/auto-edit/jump-cut', {
+      asset_id: assetId,
+      operation: 'jump_cut',
+      project_id: projectId,
+    }),
 };
 
 export default apiClient;

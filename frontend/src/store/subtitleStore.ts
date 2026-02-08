@@ -35,8 +35,8 @@ interface SubtitleState {
 
 interface SubtitleActions {
   loadTracks: (projectId: number) => Promise<void>;
-  generateSubtitles: (projectId: number, assetId: number, language?: string) => Promise<void>;
-  translateTrack: (trackId: number, targetLanguage?: string) => Promise<void>;
+  generateSubtitles: (projectId: number, assetId: number, provider?: string, language?: string) => Promise<void>;
+  translateTrack: (trackId: number, targetLanguage?: string, provider?: string) => Promise<void>;
   updateSegmentText: (segmentId: number, updates: { text?: string; translated_text?: string; start_ms?: number; end_ms?: number }) => Promise<void>;
   deleteTrack: (trackId: number) => Promise<void>;
   setActiveTrack: (trackId: number | null) => void;
@@ -73,10 +73,10 @@ export const useSubtitleStore = create<SubtitleStore>()((set, get) => ({
     }
   },
 
-  generateSubtitles: async (projectId: number, assetId: number, language = 'zh-TW') => {
+  generateSubtitles: async (projectId: number, assetId: number, provider?: string, language = 'zh-TW') => {
     set({ isGenerating: true, generateProgress: 0 });
     try {
-      const res = await subtitleApi.generate({ project_id: projectId, asset_id: assetId, language });
+      const res = await subtitleApi.generate({ project_id: projectId, asset_id: assetId, language, provider });
       const jobId = res.data.id as number;
       set({ generateJobId: jobId });
 
@@ -108,10 +108,10 @@ export const useSubtitleStore = create<SubtitleStore>()((set, get) => ({
     }
   },
 
-  translateTrack: async (trackId: number, targetLanguage = 'en') => {
+  translateTrack: async (trackId: number, targetLanguage = 'en', provider?: string) => {
     set({ isTranslating: true, translateProgress: 0 });
     try {
-      const res = await subtitleApi.translate({ track_id: trackId, target_language: targetLanguage });
+      const res = await subtitleApi.translate({ track_id: trackId, target_language: targetLanguage, provider });
       const jobId = res.data.id as number;
       set({ translateJobId: jobId });
 
