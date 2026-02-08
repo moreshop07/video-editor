@@ -384,6 +384,7 @@ export class CompositorEngine {
       this.compositor.renderSubtitle({
         text: activeSub.text,
         translatedText: activeSub.translated_text,
+        style: activeSub.style ?? null,
       });
     }
   }

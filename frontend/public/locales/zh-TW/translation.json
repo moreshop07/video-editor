@@ -471,6 +471,63 @@
     "you": "你",
     "online": "在線"
   },
+  "captions": {
+    "title": "字幕設定",
+    "styling": {
+      "title": "樣式",
+      "fontSize": "字體大小",
+      "fontFamily": "字型",
+      "fontColor": "字體顏色",
+      "fontWeight": "字重",
+      "bgColor": "背景顏色",
+      "bgOpacity": "背景透明度",
+      "position": "位置",
+      "positionTop": "頂部",
+      "positionCenter": "置中",
+      "positionBottom": "底部",
+      "outline": "文字描邊",
+      "presets": "預設樣式",
+      "presetDefault": "預設",
+      "presetYoutube": "YouTube",
+      "presetNetflix": "Netflix",
+      "presetMinimal": "簡約",
+      "presetHighContrast": "高對比",
+      "noTrack": "尚未選擇字幕軌"
+    },
+    "speakers": {
+      "title": "講者",
+      "detect": "偵測講者",
+      "detecting": "偵測中...",
+      "detected": "已偵測講者",
+      "speakerCount": "找到 {{count}} 位講者",
+      "noTrack": "請先產生字幕",
+      "editLabel": "編輯標籤"
+    },
+    "audit": {
+      "title": "無障礙檢查",
+      "score": "無障礙分數",
+      "noIssues": "無問題",
+      "issueCount": "發現 {{count}} 個問題",
+      "wpm": "閱讀速度",
+      "min_display": "顯示時間",
+      "contrast": "對比度",
+      "line_length": "行長度",
+      "error": "錯誤",
+      "warning": "警告",
+      "goToSegment": "跳至片段",
+      "runAudit": "執行檢查",
+      "noTrack": "無字幕軌可檢查"
+    },
+    "soundDesc": {
+      "title": "音效標籤",
+      "generate": "產生音效描述",
+      "generating": "產生中...",
+      "completed": "已新增音效描述",
+      "insertedCount": "已插入 {{count}} 個描述",
+      "selectAsset": "選擇影片素材",
+      "noTrack": "請先產生字幕"
+    }
+  },
   "smartEdit": {
     "title": "智慧剪輯",
     "beatSync": {

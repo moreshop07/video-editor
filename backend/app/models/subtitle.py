@@ -41,6 +41,7 @@ class SubtitleTrack(Base):
     is_auto_generated: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False
     )
+    style: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

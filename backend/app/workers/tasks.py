@@ -1949,3 +1949,207 @@ def _smart_edit_highlight_detect(session, job, params, service, analyzer_service
     finally:
         if os.path.exists(local_path):
             os.unlink(local_path)
+
+
+# ---------------------------------------------------------------------------
+# Speaker Detection Task
+# ---------------------------------------------------------------------------
+
+
+@celery_app.task(
+    name="app.workers.tasks.speaker_detect_task",
+    bind=True,
+    max_retries=2,
+)
+def speaker_detect_task(self, job_id: int) -> dict:
+    """Detect and label speakers in subtitle segments using GPT-4."""
+    from app.services import caption_accessibility as ca_service
+
+    session = get_sync_session()
+    job = None
+    try:
+        job = session.get(ProcessingJob, job_id)
+        if job is None:
+            raise ValueError(f"Job {job_id} not found")
+
+        _update_job_status(session, job, JobStatus.PROCESSING.value, progress=0.0)
+
+        track_id = (job.input_params or {}).get("track_id")
+        if not track_id:
+            raise ValueError("No track_id specified")
+
+        track = session.get(SubtitleTrack, track_id)
+        if track is None:
+            raise ValueError(f"SubtitleTrack {track_id} not found")
+
+        segments = (
+            session.query(SubtitleSegment)
+            .filter(SubtitleSegment.track_id == track_id)
+            .order_by(SubtitleSegment.index)
+            .all()
+        )
+
+        if not segments:
+            _update_job_status(
+                session,
+                job,
+                JobStatus.COMPLETED.value,
+                progress=100.0,
+                result={"track_id": track_id, "updated_count": 0},
+            )
+            return {"job_id": job_id, "updated_count": 0}
+
+        _publish_progress(job_id, 20.0, detail="Detecting speakers...")
+
+        segment_dicts = [{"index": seg.index, "text": seg.text} for seg in segments]
+        speaker_results = ca_service.detect_speakers(segment_dicts)
+
+        _publish_progress(job_id, 80.0, detail="Saving speaker labels...")
+
+        speaker_map = {r["index"]: r["speaker"] for r in speaker_results}
+        for seg in segments:
+            if seg.index in speaker_map:
+                seg.speaker = speaker_map[seg.index]
+
+        session.commit()
+
+        unique_speakers = list(set(r["speaker"] for r in speaker_results))
+        _update_job_status(
+            session,
+            job,
+            JobStatus.COMPLETED.value,
+            progress=100.0,
+            result={
+                "track_id": track_id,
+                "updated_count": len(speaker_results),
+                "speakers": unique_speakers,
+            },
+        )
+        return {
+            "job_id": job_id,
+            "track_id": track_id,
+            "updated_count": len(speaker_results),
+        }
+
+    except Exception as exc:
+        session.rollback()
+        logger.exception("speaker_detect_task failed for job %s", job_id)
+        try:
+            if job:
+                _update_job_status(
+                    session,
+                    job,
+                    JobStatus.FAILED.value,
+                    error_message=str(exc)[:2000],
+                )
+        except Exception:
+            logger.exception("Failed to update job status to FAILED")
+        raise self.retry(exc=exc, countdown=60)
+    finally:
+        session.close()
+
+
+# ---------------------------------------------------------------------------
+# Sound Description Task
+# ---------------------------------------------------------------------------
+
+
+@celery_app.task(
+    name="app.workers.tasks.sound_describe_task",
+    bind=True,
+    max_retries=2,
+)
+def sound_describe_task(self, job_id: int) -> dict:
+    """Detect and insert sound description tags for accessibility."""
+    from app.services import caption_accessibility as ca_service
+
+    session = get_sync_session()
+    job = None
+    try:
+        job = session.get(ProcessingJob, job_id)
+        if job is None:
+            raise ValueError(f"Job {job_id} not found")
+
+        _update_job_status(session, job, JobStatus.PROCESSING.value, progress=0.0)
+
+        input_params = job.input_params or {}
+        track_id = input_params.get("track_id")
+        asset_id = input_params.get("asset_id")
+
+        if not track_id or not asset_id:
+            raise ValueError("track_id and asset_id required")
+
+        asset = session.get(Asset, asset_id)
+        if asset is None:
+            raise ValueError(f"Asset {asset_id} not found")
+
+        segments = (
+            session.query(SubtitleSegment)
+            .filter(SubtitleSegment.track_id == track_id)
+            .order_by(SubtitleSegment.index)
+            .all()
+        )
+
+        _publish_progress(job_id, 10.0, detail="Downloading audio...")
+        local_path = _download_from_minio(asset.file_path)
+
+        try:
+            _publish_progress(job_id, 30.0, detail="Analyzing audio events...")
+
+            segment_dicts = [
+                {"start_ms": s.start_ms, "end_ms": s.end_ms, "text": s.text}
+                for s in segments
+            ]
+
+            descriptions = ca_service.detect_sound_events(local_path, segment_dicts)
+
+            _publish_progress(job_id, 80.0, detail="Inserting description segments...")
+
+            max_index = max((s.index for s in segments), default=-1)
+
+            for i, desc in enumerate(descriptions):
+                new_seg = SubtitleSegment(
+                    track_id=track_id,
+                    index=max_index + 1 + i,
+                    start_ms=desc["start_ms"],
+                    end_ms=desc["end_ms"],
+                    text=desc["text"],
+                    speaker="[DESCRIPTION]",
+                )
+                session.add(new_seg)
+
+            session.commit()
+
+            _update_job_status(
+                session,
+                job,
+                JobStatus.COMPLETED.value,
+                progress=100.0,
+                result={
+                    "track_id": track_id,
+                    "inserted_count": len(descriptions),
+                    "descriptions": descriptions,
+                },
+            )
+            return {"job_id": job_id, "inserted_count": len(descriptions)}
+
+        finally:
+            if os.path.exists(local_path):
+                os.unlink(local_path)
+
+    except Exception as exc:
+        session.rollback()
+        logger.exception("sound_describe_task failed for job %s", job_id)
+        try:
+            if job:
+                _update_job_status(
+                    session,
+                    job,
+                    JobStatus.FAILED.value,
+                    error_message=str(exc)[:2000],
+                )
+        except Exception:
+            logger.exception("Failed to update job status to FAILED")
+        raise self.retry(exc=exc, countdown=60)
+    finally:
+        session.close()

@@ -471,6 +471,63 @@
     "you": "You",
     "online": "online"
   },
+  "captions": {
+    "title": "Captions",
+    "styling": {
+      "title": "Styling",
+      "fontSize": "Font Size",
+      "fontFamily": "Font Family",
+      "fontColor": "Font Color",
+      "fontWeight": "Weight",
+      "bgColor": "Background Color",
+      "bgOpacity": "Background Opacity",
+      "position": "Position",
+      "positionTop": "Top",
+      "positionCenter": "Center",
+      "positionBottom": "Bottom",
+      "outline": "Text Outline",
+      "presets": "Presets",
+      "presetDefault": "Default",
+      "presetYoutube": "YouTube",
+      "presetNetflix": "Netflix",
+      "presetMinimal": "Minimal",
+      "presetHighContrast": "High Contrast",
+      "noTrack": "No subtitle track selected"
+    },
+    "speakers": {
+      "title": "Speakers",
+      "detect": "Detect Speakers",
+      "detecting": "Detecting...",
+      "detected": "Speakers detected",
+      "speakerCount": "{{count}} speakers found",
+      "noTrack": "Generate subtitles first",
+      "editLabel": "Edit label"
+    },
+    "audit": {
+      "title": "Audit",
+      "score": "Accessibility Score",
+      "noIssues": "No issues found",
+      "issueCount": "{{count}} issues found",
+      "wpm": "Reading Speed",
+      "min_display": "Display Time",
+      "contrast": "Contrast Ratio",
+      "line_length": "Line Length",
+      "error": "Error",
+      "warning": "Warning",
+      "goToSegment": "Go to segment",
+      "runAudit": "Run Audit",
+      "noTrack": "No subtitle track to audit"
+    },
+    "soundDesc": {
+      "title": "Sound Tags",
+      "generate": "Generate Sound Descriptions",
+      "generating": "Generating...",
+      "completed": "Sound descriptions added",
+      "insertedCount": "{{count}} descriptions inserted",
+      "selectAsset": "Select video asset",
+      "noTrack": "Generate subtitles first"
+    }
+  },
   "smartEdit": {
     "title": "Smart Edit",
     "beatSync": {

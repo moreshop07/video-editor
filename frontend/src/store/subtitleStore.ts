@@ -1,6 +1,17 @@
 import { create } from 'zustand';
 import { subtitleApi, processingApi } from '@/api/client';
 
+export interface CaptionStyle {
+  fontSize?: number;
+  fontFamily?: string;
+  fontColor?: string;
+  fontWeight?: string;
+  bgColor?: string;
+  bgOpacity?: number;
+  position?: 'top' | 'center' | 'bottom';
+  outline?: boolean;
+}
+
 export interface SubtitleSegment {
   id: number;
   index: number;
@@ -18,6 +29,7 @@ export interface SubtitleTrack {
   language: string;
   label: string;
   is_auto_generated: boolean;
+  style: CaptionStyle | null;
   segments: SubtitleSegment[];
   created_at: string;
 }
@@ -31,6 +43,12 @@ interface SubtitleState {
   translateJobId: number | null;
   generateProgress: number;
   translateProgress: number;
+  isSpeakerDetecting: boolean;
+  isSoundDescribing: boolean;
+  speakerDetectJobId: number | null;
+  soundDescribeJobId: number | null;
+  speakerDetectProgress: number;
+  soundDescribeProgress: number;
 }
 
 interface SubtitleActions {
@@ -41,6 +59,9 @@ interface SubtitleActions {
   deleteTrack: (trackId: number) => Promise<void>;
   setActiveTrack: (trackId: number | null) => void;
   getActiveSegmentAt: (timeMs: number) => SubtitleSegment | null;
+  updateTrackStyle: (trackId: number, style: CaptionStyle) => Promise<void>;
+  detectSpeakers: (trackId: number) => Promise<void>;
+  describeSounds: (trackId: number, assetId: number) => Promise<void>;
   reset: () => void;
 }
 
@@ -55,6 +76,12 @@ const initialState: SubtitleState = {
   translateJobId: null,
   generateProgress: 0,
   translateProgress: 0,
+  isSpeakerDetecting: false,
+  isSoundDescribing: false,
+  speakerDetectJobId: null,
+  soundDescribeJobId: null,
+  speakerDetectProgress: 0,
+  soundDescribeProgress: 0,
 };
 
 export const useSubtitleStore = create<SubtitleStore>()((set, get) => ({
@@ -189,6 +216,91 @@ export const useSubtitleStore = create<SubtitleStore>()((set, get) => ({
     return track.segments.find(
       (seg) => timeMs >= seg.start_ms && timeMs < seg.end_ms,
     ) ?? null;
+  },
+
+  updateTrackStyle: async (trackId: number, style: CaptionStyle) => {
+    try {
+      await subtitleApi.updateTrackStyle(trackId, { style });
+      set((state) => ({
+        tracks: state.tracks.map((t) =>
+          t.id === trackId ? { ...t, style } : t,
+        ),
+      }));
+    } catch {
+      // Handle error silently
+    }
+  },
+
+  detectSpeakers: async (trackId: number) => {
+    set({ isSpeakerDetecting: true, speakerDetectProgress: 0 });
+    try {
+      const res = await subtitleApi.speakerDetect({ track_id: trackId });
+      const jobId = res.data.id as number;
+      set({ speakerDetectJobId: jobId });
+
+      const poll = async () => {
+        try {
+          const jobRes = await processingApi.getJob(jobId);
+          const job = jobRes.data;
+          set({ speakerDetectProgress: job.progress ?? 0 });
+          if (job.status === 'completed') {
+            set({ isSpeakerDetecting: false, speakerDetectJobId: null });
+            const trackRes = await subtitleApi.getTrack(trackId);
+            const updatedTrack = trackRes.data as SubtitleTrack;
+            set((state) => ({
+              tracks: state.tracks.map((t) => (t.id === trackId ? updatedTrack : t)),
+            }));
+            return;
+          }
+          if (job.status === 'failed') {
+            set({ isSpeakerDetecting: false, speakerDetectJobId: null });
+            return;
+          }
+          setTimeout(poll, 2000);
+        } catch {
+          set({ isSpeakerDetecting: false, speakerDetectJobId: null });
+        }
+      };
+      poll();
+    } catch {
+      set({ isSpeakerDetecting: false, speakerDetectJobId: null });
+    }
+  },
+
+  describeSounds: async (trackId: number, assetId: number) => {
+    set({ isSoundDescribing: true, soundDescribeProgress: 0 });
+    try {
+      const res = await subtitleApi.soundDescribe({ track_id: trackId, asset_id: assetId });
+      const jobId = res.data.id as number;
+      set({ soundDescribeJobId: jobId });
+
+      const poll = async () => {
+        try {
+          const jobRes = await processingApi.getJob(jobId);
+          const job = jobRes.data;
+          set({ soundDescribeProgress: job.progress ?? 0 });
+          if (job.status === 'completed') {
+            set({ isSoundDescribing: false, soundDescribeJobId: null });
+            const trackRes = await subtitleApi.getTrack(trackId);
+            const updatedTrack = trackRes.data as SubtitleTrack;
+            set((state) => ({
+              tracks: state.tracks.map((t) => (t.id === trackId ? updatedTrack : t)),
+            }));
+            return;
+          }
+          if (job.status === 'failed') {
+            set({ isSoundDescribing: false, soundDescribeJobId: null });
+            return;
+          }
+          setTimeout(poll, 2000);
+        } catch {
+          set({ isSoundDescribing: false, soundDescribeJobId: null });
+        }
+      };
+      poll();
+    } catch {
+      set({ isSoundDescribing: false, soundDescribeJobId: null });
+    }
   },
 
   reset: () => set(initialState),

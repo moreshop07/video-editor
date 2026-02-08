@@ -78,9 +78,21 @@ export interface CompositeLayer {
   };
 }
 
+export interface CaptionStyle {
+  fontSize?: number;
+  fontFamily?: string;
+  fontColor?: string;
+  fontWeight?: string;
+  bgColor?: string;
+  bgOpacity?: number;
+  position?: 'top' | 'center' | 'bottom';
+  outline?: boolean;
+}
+
 export interface SubtitleOverlay {
   text: string;
   translatedText?: string | null;
+  style?: CaptionStyle | null;
 }
 
 export interface SubtitleEntry {
@@ -88,6 +100,8 @@ export interface SubtitleEntry {
   end_ms: number;
   text: string;
   translated_text: string | null;
+  speaker?: string | null;
+  style?: CaptionStyle | null;
 }
 
 export interface IVideoDecoderPool {

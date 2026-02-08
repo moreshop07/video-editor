@@ -136,12 +136,15 @@ export default function VideoPreview() {
 
     const activeSubTrack = subtitleTracks.find((t) => t.id === activeTrackId);
     const segments = activeSubTrack?.segments ?? [];
+    const trackStyle = activeSubTrack?.style ?? null;
     engine.setSubtitleSegments(
       segments.map((seg) => ({
         start_ms: seg.start_ms,
         end_ms: seg.end_ms,
         text: seg.text,
         translated_text: seg.translated_text,
+        speaker: seg.speaker ?? null,
+        style: trackStyle,
       })),
     );
   }, [subtitleTracks, activeTrackId]);

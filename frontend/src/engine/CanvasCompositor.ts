@@ -108,11 +108,24 @@ export class CanvasCompositor {
 
   renderSubtitle(overlay: SubtitleOverlay): void {
     const ctx = this.ctx;
-    const baseFontSize = Math.round(this.height * 0.045);
+    const s = overlay.style;
+
+    const fontSizeFraction = s?.fontSize ?? 0.045;
+    const fontFamily =
+      s?.fontFamily ??
+      '"Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif';
+    const fontColor = s?.fontColor ?? '#FFFFFF';
+    const fontWeight = s?.fontWeight ?? 'bold';
+    const bgColor = s?.bgColor ?? '#000000';
+    const bgOpacity = s?.bgOpacity ?? 0.6;
+    const position = s?.position ?? 'bottom';
+    const outline = s?.outline ?? true;
+
+    const baseFontSize = Math.round(this.height * fontSizeFraction);
     const smallFontSize = Math.round(baseFontSize * 0.85);
     const lineHeight = baseFontSize * 1.4;
     const padding = Math.round(this.height * 0.015);
-    const bottomMargin = Math.round(this.height * 0.06);
+    const margin = Math.round(this.height * 0.06);
 
     const lines: { text: string; fontSize: number }[] = [];
     lines.push({ text: overlay.text, fontSize: baseFontSize });
@@ -122,25 +135,35 @@ export class CanvasCompositor {
 
     const totalTextHeight = lines.length * lineHeight;
     const bgHeight = totalTextHeight + padding * 2;
-    const bgY = this.height - bottomMargin - bgHeight;
 
-    // Semi-transparent background bar
+    let bgY: number;
+    if (position === 'top') {
+      bgY = margin;
+    } else if (position === 'center') {
+      bgY = (this.height - bgHeight) / 2;
+    } else {
+      bgY = this.height - margin - bgHeight;
+    }
+
+    const r = parseInt(bgColor.slice(1, 3), 16) || 0;
+    const g = parseInt(bgColor.slice(3, 5), 16) || 0;
+    const b = parseInt(bgColor.slice(5, 7), 16) || 0;
+
     ctx.save();
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${bgOpacity})`;
     ctx.fillRect(0, bgY, this.width, bgHeight);
 
-    // Draw each line centered
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
     let yOffset = bgY + padding + lineHeight / 2;
     for (const line of lines) {
-      ctx.font = `bold ${line.fontSize}px "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif`;
-      // Text shadow
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-      ctx.fillText(line.text, this.width / 2 + 1, yOffset + 1);
-      // Main text
-      ctx.fillStyle = '#FFFFFF';
+      ctx.font = `${fontWeight} ${line.fontSize}px ${fontFamily}`;
+      if (outline) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.fillText(line.text, this.width / 2 + 1, yOffset + 1);
+      }
+      ctx.fillStyle = fontColor;
       ctx.fillText(line.text, this.width / 2, yOffset);
       yOffset += lineHeight;
     }

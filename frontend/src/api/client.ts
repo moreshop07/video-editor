@@ -129,6 +129,12 @@ export const subtitleApi = {
     apiClient.patch(`/subtitles/segment/${segmentId}`, data),
   deleteTrack: (trackId: number) =>
     apiClient.delete(`/subtitles/track/${trackId}`),
+  updateTrackStyle: (trackId: number, data: { style: Record<string, unknown> }) =>
+    apiClient.patch(`/subtitles/track/${trackId}/style`, data),
+  speakerDetect: (data: { track_id: number }) =>
+    apiClient.post('/subtitles/speaker-detect', data),
+  soundDescribe: (data: { track_id: number; asset_id: number }) =>
+    apiClient.post('/subtitles/sound-describe', data),
 };
 
 // ---- External Assets API ----

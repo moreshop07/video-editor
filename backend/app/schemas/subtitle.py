@@ -18,6 +18,30 @@ class SubtitleTranslateRequest(BaseModel):
     provider: str = "gpt4"  # "gpt4" or "claude"
 
 
+class CaptionStyle(BaseModel):
+    fontSize: Optional[float] = None
+    fontFamily: Optional[str] = None
+    fontColor: Optional[str] = None
+    fontWeight: Optional[str] = None
+    bgColor: Optional[str] = None
+    bgOpacity: Optional[float] = None
+    position: Optional[str] = None  # "top", "center", "bottom"
+    outline: Optional[bool] = None
+
+
+class TrackStyleUpdate(BaseModel):
+    style: CaptionStyle
+
+
+class SpeakerDetectRequest(BaseModel):
+    track_id: int
+
+
+class SoundDescribeRequest(BaseModel):
+    track_id: int
+    asset_id: int
+
+
 class SubtitleSegmentResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -40,6 +64,7 @@ class SubtitleTrackResponse(BaseModel):
     language: str
     label: str
     is_auto_generated: bool
+    style: Optional[Dict] = None
     segments: List[SubtitleSegmentResponse]
     created_at: datetime
 

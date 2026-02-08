@@ -30,6 +30,8 @@ class JobType(str, enum.Enum):
     GENERATE_VOICEOVER = "generate_voiceover"
     AI_VIDEO = "ai_video"
     SMART_EDIT = "smart_edit"
+    SPEAKER_DETECT = "speaker_detect"
+    SOUND_DESCRIBE = "sound_describe"
 
 
 class JobStatus(str, enum.Enum):

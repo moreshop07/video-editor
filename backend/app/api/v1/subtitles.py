@@ -14,13 +14,18 @@ from app.models.subtitle import SubtitleSegment, SubtitleTrack
 from app.models.user import User
 from app.schemas.processing import JobResponse
 from app.schemas.subtitle import (
+    SoundDescribeRequest,
+    SpeakerDetectRequest,
     SubtitleGenerateRequest,
     SubtitleSegmentResponse,
     SubtitleSegmentUpdate,
     SubtitleTrackResponse,
     SubtitleTranslateRequest,
+    TrackStyleUpdate,
 )
 from app.workers.tasks import (
+    speaker_detect_task,
+    sound_describe_task,
     transcribe_audio,
     transcribe_local_task,
     translate_claude,
@@ -239,3 +244,89 @@ async def delete_subtitle_track(
     track = await _get_track_for_user(track_id, current_user, db)
     await db.delete(track)
     await db.flush()
+
+
+# ---------------------------------------------------------------------------
+# PATCH /subtitles/track/{track_id}/style
+# ---------------------------------------------------------------------------
+@router.patch("/track/{track_id}/style", response_model=SubtitleTrackResponse)
+async def update_track_style(
+    track_id: int,
+    body: TrackStyleUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> SubtitleTrack:
+    """Update the visual style for a subtitle track."""
+    track = await _get_track_for_user(track_id, current_user, db)
+    track.style = body.style.model_dump(exclude_unset=True)
+    await db.flush()
+    await db.refresh(track)
+    return track
+
+
+# ---------------------------------------------------------------------------
+# POST /subtitles/speaker-detect
+# ---------------------------------------------------------------------------
+@router.post(
+    "/speaker-detect",
+    response_model=JobResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def detect_speakers(
+    body: SpeakerDetectRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> ProcessingJob:
+    """Dispatch a speaker detection task for a subtitle track."""
+    track = await _get_track_for_user(body.track_id, current_user, db)
+
+    job = ProcessingJob(
+        user_id=current_user.id,
+        project_id=track.project_id,
+        job_type=JobType.SPEAKER_DETECT.value,
+        status=JobStatus.PENDING.value,
+        input_params={"track_id": body.track_id},
+    )
+    db.add(job)
+    await db.flush()
+    await db.refresh(job)
+
+    task = speaker_detect_task.delay(job.id)
+    job.celery_task_id = task.id
+    await db.flush()
+    await db.refresh(job)
+    return job
+
+
+# ---------------------------------------------------------------------------
+# POST /subtitles/sound-describe
+# ---------------------------------------------------------------------------
+@router.post(
+    "/sound-describe",
+    response_model=JobResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def describe_sounds(
+    body: SoundDescribeRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> ProcessingJob:
+    """Dispatch a sound description task for hearing-impaired accessibility."""
+    track = await _get_track_for_user(body.track_id, current_user, db)
+
+    job = ProcessingJob(
+        user_id=current_user.id,
+        project_id=track.project_id,
+        job_type=JobType.SOUND_DESCRIBE.value,
+        status=JobStatus.PENDING.value,
+        input_params={"track_id": body.track_id, "asset_id": body.asset_id},
+    )
+    db.add(job)
+    await db.flush()
+    await db.refresh(job)
+
+    task = sound_describe_task.delay(job.id)
+    job.celery_task_id = task.id
+    await db.flush()
+    await db.refresh(job)
+    return job
