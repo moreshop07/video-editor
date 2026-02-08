@@ -440,5 +440,13 @@
     "release": "釋音",
     "knee": "拐點",
     "meter": "音量表"
+  },
+  "mixer": {
+    "title": "音訊混音器",
+    "master": "主音量",
+    "solo": "S",
+    "mute": "M",
+    "peak": "峰值",
+    "noTracks": "無音訊軌道"
   }
 }

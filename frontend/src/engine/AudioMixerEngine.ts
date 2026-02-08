@@ -176,6 +176,24 @@ export class AudioMixerEngine {
     return Math.sqrt(sumOfSquares / dataArray.length);
   }
 
+  /**
+   * Get frequency-domain data for a track (for EQ visualization).
+   */
+  getTrackFrequencyData(trackId: string): Uint8Array | null {
+    const nodes = this.trackNodes.get(trackId);
+    if (!nodes) return null;
+    const data = new Uint8Array(nodes.analyser.frequencyBinCount);
+    nodes.analyser.getByteFrequencyData(data);
+    return data;
+  }
+
+  /**
+   * Get IDs of all tracks that currently have audio nodes.
+   */
+  getTrackIds(): string[] {
+    return Array.from(this.trackNodes.keys());
+  }
+
   private async getAudioBuffer(assetId: string): Promise<AudioBuffer | null> {
     if (!this.audioCtx || !this.urlResolver) return null;
 

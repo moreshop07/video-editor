@@ -440,5 +440,13 @@
     "release": "Release",
     "knee": "Knee",
     "meter": "Level"
+  },
+  "mixer": {
+    "title": "Audio Mixer",
+    "master": "Master",
+    "solo": "S",
+    "mute": "M",
+    "peak": "Peak",
+    "noTracks": "No audio tracks"
   }
 }

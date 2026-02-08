@@ -739,6 +739,10 @@ export class CompositorEngine {
     }
   }
 
+  getAudioMixer(): AudioMixerEngine {
+    return this.audioMixer;
+  }
+
   setMasterVolume(volume: number): void {
     this.audioMixer.setMasterVolume(volume);
   }

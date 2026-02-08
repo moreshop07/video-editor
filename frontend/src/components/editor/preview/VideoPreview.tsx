@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTimelineStore } from '@/store/timelineStore';
 import { useSubtitleStore } from '@/store/subtitleStore';
+import { useAudioMixerStore } from '@/store/audioMixerStore';
 import { CompositorEngine } from '@/engine';
 import type { RenderableTrack } from '@/engine';
 
@@ -72,9 +73,11 @@ export default function VideoPreview() {
 
     engine.init().then(() => {
       engineRef.current = engine;
+      useAudioMixerStore.getState().setEngine(engine.getAudioMixer());
     });
 
     return () => {
+      useAudioMixerStore.getState().setEngine(null);
       engine.dispose();
       engineRef.current = null;
     };
