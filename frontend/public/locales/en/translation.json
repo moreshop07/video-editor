@@ -448,5 +448,12 @@
     "mute": "M",
     "peak": "Peak",
     "noTracks": "No audio tracks"
+  },
+  "multiSelect": {
+    "nClipsSelected": "{{count}} clips selected",
+    "deleteAll": "Delete All",
+    "batchVolume": "Volume (All)",
+    "batchOpacity": "Opacity (All)",
+    "selectAll": "Select All"
   }
 }

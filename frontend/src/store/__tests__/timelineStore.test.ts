@@ -55,7 +55,7 @@ describe('timelineStore', () => {
       duration: 0,
       zoom: 1,
       scrollX: 0,
-      selectedClipId: null,
+      selectedClipIds: [],
       selectedTrackId: null,
       snapEnabled: true,
       snapLine: null,
@@ -70,7 +70,7 @@ describe('timelineStore', () => {
     expect(state.currentTime).toBe(0);
     expect(state.isPlaying).toBe(false);
     expect(state.zoom).toBe(1);
-    expect(state.selectedClipId).toBeNull();
+    expect(state.selectedClipIds).toEqual([]);
   });
 
   it('addTrack should add a new track', () => {
@@ -95,12 +95,12 @@ describe('timelineStore', () => {
     const clip = makeClip({ id: 'clip_to_remove' });
     getState().addClip('track_video_default', clip);
     getState().selectClip('clip_to_remove');
-    expect(getState().selectedClipId).toBe('clip_to_remove');
+    expect(getState().selectedClipIds).toEqual(['clip_to_remove']);
 
     getState().removeClip('track_video_default', 'clip_to_remove');
     const track = getState().tracks.find((t) => t.id === 'track_video_default');
     expect(track?.clips).toHaveLength(0);
-    expect(getState().selectedClipId).toBeNull();
+    expect(getState().selectedClipIds).toEqual([]);
   });
 
   it('moveClip should update startTime and endTime', () => {
@@ -255,6 +255,6 @@ describe('timelineStore', () => {
     expect(state.zoom).toBe(2);
     expect(state.currentTime).toBe(0);
     expect(state.isPlaying).toBe(false);
-    expect(state.selectedClipId).toBeNull();
+    expect(state.selectedClipIds).toEqual([]);
   });
 });

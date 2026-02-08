@@ -448,5 +448,12 @@
     "mute": "M",
     "peak": "峰值",
     "noTracks": "無音訊軌道"
+  },
+  "multiSelect": {
+    "nClipsSelected": "已選取 {{count}} 個片段",
+    "deleteAll": "全部刪除",
+    "batchVolume": "音量（全部）",
+    "batchOpacity": "不透明度（全部）",
+    "selectAll": "全選"
   }
 }

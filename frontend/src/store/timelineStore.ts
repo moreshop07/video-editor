@@ -185,7 +185,7 @@ interface TimelineState {
   duration: number;
   zoom: number;
   scrollX: number;
-  selectedClipId: string | null;
+  selectedClipIds: string[];
   selectedTrackId: string | null;
   snapEnabled: boolean;
   snapLine: number | null;
@@ -209,6 +209,10 @@ interface TimelineState {
   setClipKeyframe: (clipId: string, property: AnimatableProperty, timeMs: number, value: number) => void;
   removeClipKeyframe: (clipId: string, property: AnimatableProperty, timeMs: number) => void;
 
+  // Batch operations
+  removeSelectedClips: () => void;
+  updateSelectedClips: (updates: Partial<Clip>) => void;
+
   // Playback
   play: () => void;
   pause: () => void;
@@ -219,6 +223,9 @@ interface TimelineState {
 
   // Selection
   selectClip: (clipId: string | null) => void;
+  toggleClipSelection: (clipId: string) => void;
+  addClipRangeSelection: (clipId: string) => void;
+  selectClips: (clipIds: string[]) => void;
   selectTrack: (trackId: string | null) => void;
 
   // View
@@ -271,7 +278,7 @@ export const useTimelineStore = create<TimelineState>()(
       duration: 0,
       zoom: 1,
       scrollX: 0,
-      selectedClipId: null,
+      selectedClipIds: [],
       selectedTrackId: null,
       snapEnabled: true,
       snapLine: null,
@@ -350,7 +357,7 @@ export const useTimelineStore = create<TimelineState>()(
             if (track.id !== trackId) return track;
             return { ...track, clips: track.clips.filter((c) => c.id !== clipId) };
           }),
-          selectedClipId: state.selectedClipId === clipId ? null : state.selectedClipId,
+          selectedClipIds: state.selectedClipIds.filter((id) => id !== clipId),
         })),
 
       moveClip: (fromTrackId, toTrackId, clipId, newStartTime) =>
@@ -514,7 +521,77 @@ export const useTimelineStore = create<TimelineState>()(
       seekForward: (ms = 1000) => set((s) => ({ currentTime: s.currentTime + ms })),
       seekBackward: (ms = 1000) => set((s) => ({ currentTime: Math.max(0, s.currentTime - ms) })),
 
-      selectClip: (clipId) => set({ selectedClipId: clipId }),
+      removeSelectedClips: () =>
+        set((state) => {
+          const idsToRemove = new Set(state.selectedClipIds);
+          return {
+            tracks: state.tracks.map((track) => ({
+              ...track,
+              clips: track.clips.filter((c) => !idsToRemove.has(c.id)),
+            })),
+            selectedClipIds: [],
+          };
+        }),
+
+      updateSelectedClips: (updates) =>
+        set((state) => {
+          const ids = new Set(state.selectedClipIds);
+          return {
+            tracks: state.tracks.map((track) => ({
+              ...track,
+              clips: track.clips.map((c) =>
+                ids.has(c.id) ? { ...c, ...updates } : c
+              ),
+            })),
+          };
+        }),
+
+      selectClip: (clipId) => set({ selectedClipIds: clipId ? [clipId] : [] }),
+
+      toggleClipSelection: (clipId) =>
+        set((state) => {
+          const idx = state.selectedClipIds.indexOf(clipId);
+          if (idx >= 0) {
+            return { selectedClipIds: state.selectedClipIds.filter((id) => id !== clipId) };
+          }
+          return { selectedClipIds: [...state.selectedClipIds, clipId] };
+        }),
+
+      addClipRangeSelection: (clipId) =>
+        set((state) => {
+          // Find the track containing the clicked clip
+          let targetTrack: Track | undefined;
+          let clickedClip: Clip | undefined;
+          for (const t of state.tracks) {
+            const c = t.clips.find((cl) => cl.id === clipId);
+            if (c) { targetTrack = t; clickedClip = c; break; }
+          }
+          if (!targetTrack || !clickedClip) return { selectedClipIds: [clipId] };
+
+          // Find the last selected clip on the same track
+          const lastSelected = state.selectedClipIds[state.selectedClipIds.length - 1];
+          let anchorClip: Clip | undefined;
+          if (lastSelected) {
+            anchorClip = targetTrack.clips.find((c) => c.id === lastSelected);
+          }
+          if (!anchorClip) return { selectedClipIds: [clipId] };
+
+          // Select all clips between anchor and clicked (by startTime)
+          const minTime = Math.min(anchorClip.startTime, clickedClip.startTime);
+          const maxTime = Math.max(anchorClip.endTime, clickedClip.endTime);
+          const rangeIds = targetTrack.clips
+            .filter((c) => c.startTime >= minTime && c.endTime <= maxTime)
+            .map((c) => c.id);
+
+          // Merge with existing selection from other tracks
+          const otherTrackIds = state.selectedClipIds.filter(
+            (id) => !targetTrack!.clips.some((c) => c.id === id)
+          );
+          return { selectedClipIds: [...otherTrackIds, ...rangeIds] };
+        }),
+
+      selectClips: (clipIds) => set({ selectedClipIds: clipIds }),
+
       selectTrack: (trackId) => set({ selectedTrackId: trackId }),
 
       setZoom: (zoom) => set({ zoom: Math.max(0.1, Math.min(10, zoom)) }),
@@ -595,7 +672,7 @@ export const useTimelineStore = create<TimelineState>()(
           snapEnabled: data.timeline.snapEnabled ?? true,
           currentTime: 0,
           isPlaying: false,
-          selectedClipId: null,
+          selectedClipIds: [],
           selectedTrackId: null,
         });
 
@@ -617,7 +694,7 @@ export const useTimelineStore = create<TimelineState>()(
         // Excluded from history:
         // - currentTime (playback position)
         // - isPlaying (playback state)
-        // - selectedClipId, selectedTrackId (selection)
+        // - selectedClipIds, selectedTrackId (selection)
         // - snapLine (visual feedback)
         // - duration (computed)
       }),

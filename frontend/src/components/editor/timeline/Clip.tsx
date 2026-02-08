@@ -37,11 +37,14 @@ function ClipComponent({ clip, trackId, pxPerMs, trackLocked }: ClipProps) {
   const [showContextMenu, setShowContextMenu] = useState(false);
   const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 });
 
-  const selectedClipId = useTimelineStore((s) => s.selectedClipId);
+  const selectedClipIds = useTimelineStore((s) => s.selectedClipIds);
   const selectClip = useTimelineStore((s) => s.selectClip);
+  const toggleClipSelection = useTimelineStore((s) => s.toggleClipSelection);
+  const addClipRangeSelection = useTimelineStore((s) => s.addClipRangeSelection);
   const moveClip = useTimelineStore((s) => s.moveClip);
   const trimClip = useTimelineStore((s) => s.trimClip);
   const removeClip = useTimelineStore((s) => s.removeClip);
+  const removeSelectedClips = useTimelineStore((s) => s.removeSelectedClips);
   const splitClip = useTimelineStore((s) => s.splitClip);
   const currentTime = useTimelineStore((s) => s.currentTime);
   const tracks = useTimelineStore((s) => s.tracks);
@@ -49,7 +52,8 @@ function ClipComponent({ clip, trackId, pxPerMs, trackLocked }: ClipProps) {
   const setSnapLine = useTimelineStore((s) => s.setSnapLine);
   const { elements: trackElements, trackTypes: trackTypesRef } = useTrackRegistry();
 
-  const isSelected = selectedClipId === clip.id;
+  const isSelected = selectedClipIds.includes(clip.id);
+  const multiSelected = selectedClipIds.length > 1;
   const clipWidth = (clip.endTime - clip.startTime) * pxPerMs;
   const clipLeft = clip.startTime * pxPerMs;
   const color = CLIP_COLORS[clip.type] || CLIP_COLORS.video;
@@ -59,6 +63,16 @@ function ClipComponent({ clip, trackId, pxPerMs, trackLocked }: ClipProps) {
     (e: React.MouseEvent) => {
       if (trackLocked || isTrimming) return;
       e.stopPropagation();
+
+      // Multi-select handling
+      if (e.ctrlKey || e.metaKey) {
+        toggleClipSelection(clip.id);
+        return;
+      }
+      if (e.shiftKey) {
+        addClipRangeSelection(clip.id);
+        return;
+      }
       selectClip(clip.id);
 
       const startX = e.clientX;
@@ -104,7 +118,7 @@ function ClipComponent({ clip, trackId, pxPerMs, trackLocked }: ClipProps) {
       window.addEventListener('mousemove', handleMove);
       window.addEventListener('mouseup', handleUp);
     },
-    [clip.id, clip.type, clip.startTime, clip.endTime, trackId, trackLocked, pxPerMs, selectClip, moveClip, isTrimming, snapEnabled, tracks, currentTime, setSnapLine, trackElements, trackTypesRef]
+    [clip.id, clip.type, clip.startTime, clip.endTime, trackId, trackLocked, pxPerMs, selectClip, toggleClipSelection, addClipRangeSelection, moveClip, isTrimming, snapEnabled, tracks, currentTime, setSnapLine, trackElements, trackTypesRef]
   );
 
   const [trimTooltip, setTrimTooltip] = useState<{ x: number; time: number } | null>(null);
@@ -178,16 +192,20 @@ function ClipComponent({ clip, trackId, pxPerMs, trackLocked }: ClipProps) {
   }, [trackId, clip.id, clip.startTime, clip.endTime, currentTime, splitClip]);
 
   const handleDelete = useCallback(() => {
-    removeClip(trackId, clip.id);
+    if (multiSelected && isSelected) {
+      removeSelectedClips();
+    } else {
+      removeClip(trackId, clip.id);
+    }
     setShowContextMenu(false);
-  }, [trackId, clip.id, removeClip]);
+  }, [trackId, clip.id, removeClip, removeSelectedClips, multiSelected, isSelected]);
 
   return (
     <>
       <div
         ref={containerRef}
         className={`absolute top-1 bottom-1 rounded-sm cursor-grab active:cursor-grabbing select-none overflow-hidden ${
-          isSelected ? 'ring-2 ring-white' : ''
+          isSelected ? (multiSelected ? 'ring-2 ring-blue-400' : 'ring-2 ring-white') : ''
         } ${isDragging ? 'opacity-70' : ''}`}
         style={{
           left: clipLeft,
@@ -244,7 +262,7 @@ function ClipComponent({ clip, trackId, pxPerMs, trackLocked }: ClipProps) {
             onClick={handleDelete}
             className="block w-full px-4 py-1.5 text-xs text-left text-red-400 hover:bg-[var(--color-bg)]"
           >
-            Delete
+            {multiSelected && isSelected ? `Delete ${selectedClipIds.length} clips` : 'Delete'}
           </button>
         </div>
       )}

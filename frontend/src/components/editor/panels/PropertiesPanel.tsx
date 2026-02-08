@@ -24,7 +24,9 @@ import { KeyframeEditor } from './KeyframeEditor';
 
 function PropertiesPanelComponent() {
   const { t } = useTranslation();
-  const { tracks, selectedClipId, updateClip, setClipTransition, updateTrackAudio, setClipKeyframe, removeClipKeyframe } = useTimelineStore();
+  const { tracks, selectedClipIds, updateClip, setClipTransition, updateTrackAudio, setClipKeyframe, removeClipKeyframe, removeSelectedClips, updateSelectedClips } = useTimelineStore();
+
+  const selectedClipId = selectedClipIds[0] ?? null;
 
   const selectedData = useMemo<{
     clip: Clip;
@@ -124,6 +126,47 @@ function PropertiesPanelComponent() {
     },
     [selectedData, handleColorGradingUpdate],
   );
+
+  // Multi-select view
+  if (selectedClipIds.length > 1) {
+    return (
+      <div className="flex flex-col gap-3 overflow-y-auto p-3">
+        <div className="text-xs font-medium text-[var(--color-text)]">
+          {t('multiSelect.nClipsSelected', { count: selectedClipIds.length })}
+        </div>
+
+        {/* Batch Volume */}
+        <PropertySlider
+          label={t('multiSelect.batchVolume')}
+          value={1}
+          min={0}
+          max={2}
+          step={0.01}
+          onChange={(v) => updateSelectedClips({ volume: v })}
+          format={(v) => `${Math.round(v * 100)}%`}
+        />
+
+        {/* Batch Opacity (as filter) */}
+        <PropertySlider
+          label={t('multiSelect.batchOpacity')}
+          value={1}
+          min={0}
+          max={1}
+          step={0.01}
+          onChange={(v) => updateSelectedClips({ opacity: v } as Partial<Clip>)}
+          format={(v) => `${Math.round(v * 100)}%`}
+        />
+
+        {/* Delete all */}
+        <button
+          onClick={removeSelectedClips}
+          className="rounded bg-red-500/20 px-3 py-1.5 text-xs text-red-400 hover:bg-red-500/30 transition-colors"
+        >
+          {t('multiSelect.deleteAll')} ({selectedClipIds.length})
+        </button>
+      </div>
+    );
+  }
 
   if (!selectedData) {
     return (

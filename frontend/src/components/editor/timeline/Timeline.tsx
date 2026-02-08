@@ -135,19 +135,24 @@ export default function Timeline() {
           break;
         case 'Delete':
         case 'Backspace': {
-          const selectedId = useTimelineStore.getState().selectedClipId;
-          if (selectedId) {
-            const state = useTimelineStore.getState();
-            for (const track of state.tracks) {
-              const clip = track.clips.find((c) => c.id === selectedId);
-              if (clip) {
-                useTimelineStore.getState().removeClip(track.id, selectedId);
-                break;
-              }
-            }
+          const state = useTimelineStore.getState();
+          if (state.selectedClipIds.length > 0) {
+            state.removeSelectedClips();
           }
           break;
         }
+        case 'Escape':
+          useTimelineStore.getState().selectClip(null);
+          break;
+        case 'a':
+        case 'A':
+          if (e.metaKey || e.ctrlKey) {
+            e.preventDefault();
+            const state = useTimelineStore.getState();
+            const allClipIds = state.tracks.flatMap((t) => t.clips.map((c) => c.id));
+            state.selectClips(allClipIds);
+          }
+          break;
         case 'z':
         case 'Z':
           if (e.metaKey || e.ctrlKey) {

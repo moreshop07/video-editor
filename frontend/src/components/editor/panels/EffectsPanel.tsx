@@ -16,9 +16,10 @@ interface EffectPresetData {
 
 export default function EffectsPanel() {
   const { t } = useTranslation();
-  const { tracks, selectedClipId, updateClip } = useTimelineStore();
+  const { tracks, selectedClipIds, updateClip } = useTimelineStore();
   const [presets, setPresets] = useState<EffectPresetData[]>([]);
 
+  const selectedClipId = selectedClipIds[0] ?? null;
   const selectedData = useMemo<{
     clip: Clip;
     track: Track;

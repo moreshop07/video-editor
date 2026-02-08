@@ -72,7 +72,7 @@ export interface TimelineState {
   durationMs: number;
   zoom: number;
   scrollX: number;
-  selectedClipId: string | null;
+  selectedClipIds: string[];
 }
 
 export interface SubtitleSegment {
