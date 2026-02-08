@@ -7,10 +7,19 @@ export class ProjectWebSocket {
   private maxReconnectAttempts = 10;
   private baseDelay = 1000;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  private isManualClose = false;
+
+  // Callback arrays
   private jobProgressCallbacks: MessageCallback[] = [];
   private projectSyncCallbacks: MessageCallback[] = [];
   private autoSaveAckCallbacks: MessageCallback[] = [];
-  private isManualClose = false;
+  private userJoinedCallbacks: MessageCallback[] = [];
+  private userLeftCallbacks: MessageCallback[] = [];
+  private presenceCallbacks: MessageCallback[] = [];
+  private remoteOpCallbacks: MessageCallback[] = [];
+  private selectionUpdateCallbacks: MessageCallback[] = [];
+  private cursorUpdateCallbacks: MessageCallback[] = [];
 
   constructor(projectId: string) {
     this.projectId = projectId;
@@ -27,6 +36,7 @@ export class ProjectWebSocket {
     this.ws.onopen = () => {
       console.log(`WebSocket connected for project ${this.projectId}`);
       this.reconnectAttempts = 0;
+      this.startHeartbeat();
     };
 
     this.ws.onmessage = (event: MessageEvent) => {
@@ -45,6 +55,27 @@ export class ProjectWebSocket {
           case "auto_save_ack":
             this.autoSaveAckCallbacks.forEach((cb) => cb(message));
             break;
+          case "user_joined":
+            this.userJoinedCallbacks.forEach((cb) => cb(message));
+            break;
+          case "user_left":
+            this.userLeftCallbacks.forEach((cb) => cb(message));
+            break;
+          case "presence":
+            this.presenceCallbacks.forEach((cb) => cb(message));
+            break;
+          case "remote_op":
+            this.remoteOpCallbacks.forEach((cb) => cb(message));
+            break;
+          case "selection_update":
+            this.selectionUpdateCallbacks.forEach((cb) => cb(message));
+            break;
+          case "cursor_update":
+            this.cursorUpdateCallbacks.forEach((cb) => cb(message));
+            break;
+          case "heartbeat_ack":
+            // No-op, just keeps connection alive
+            break;
           default:
             console.log("Unknown WebSocket message type:", message.type);
         }
@@ -54,6 +85,7 @@ export class ProjectWebSocket {
     };
 
     this.ws.onclose = () => {
+      this.stopHeartbeat();
       if (!this.isManualClose) {
         this.attemptReconnect();
       }
@@ -62,6 +94,22 @@ export class ProjectWebSocket {
     this.ws.onerror = (error: Event) => {
       console.error("WebSocket error:", error);
     };
+  }
+
+  private startHeartbeat(): void {
+    this.stopHeartbeat();
+    this.heartbeatTimer = setInterval(() => {
+      if (this.ws?.readyState === WebSocket.OPEN) {
+        this.ws.send(JSON.stringify({ type: "heartbeat" }));
+      }
+    }, 5000);
+  }
+
+  private stopHeartbeat(): void {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
   }
 
   private attemptReconnect(): void {
@@ -86,57 +134,87 @@ export class ProjectWebSocket {
     return this.ws?.readyState === WebSocket.OPEN;
   }
 
+  // --- Send methods ---
+
   sendProjectUpdate(data: unknown): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(
-        JSON.stringify({
-          type: "project_update",
-          data,
-        }),
-      );
+      this.ws.send(JSON.stringify({ type: "project_update", data }));
     }
   }
 
   sendAutoSave(projectData: unknown): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(
-        JSON.stringify({
-          type: "auto_save",
-          project_data: projectData,
-        }),
-      );
+      this.ws.send(JSON.stringify({ type: "auto_save", project_data: projectData }));
     }
   }
 
-  onJobProgress(callback: MessageCallback): () => void {
-    this.jobProgressCallbacks.push(callback);
+  sendOperation(opType: string, payload: unknown): void {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type: "operation", op_type: opType, payload }));
+    }
+  }
+
+  sendSelection(selectedClipIds: string[]): void {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type: "selection", selectedClipIds }));
+    }
+  }
+
+  sendCursor(currentTime: number): void {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type: "cursor", currentTime }));
+    }
+  }
+
+  // --- Subscribe methods ---
+
+  private _subscribe(arr: MessageCallback[], callback: MessageCallback): () => void {
+    arr.push(callback);
     return () => {
-      this.jobProgressCallbacks = this.jobProgressCallbacks.filter(
-        (cb) => cb !== callback,
-      );
+      const idx = arr.indexOf(callback);
+      if (idx >= 0) arr.splice(idx, 1);
     };
+  }
+
+  onJobProgress(callback: MessageCallback): () => void {
+    return this._subscribe(this.jobProgressCallbacks, callback);
   }
 
   onProjectSync(callback: MessageCallback): () => void {
-    this.projectSyncCallbacks.push(callback);
-    return () => {
-      this.projectSyncCallbacks = this.projectSyncCallbacks.filter(
-        (cb) => cb !== callback,
-      );
-    };
+    return this._subscribe(this.projectSyncCallbacks, callback);
   }
 
   onAutoSaveAck(callback: MessageCallback): () => void {
-    this.autoSaveAckCallbacks.push(callback);
-    return () => {
-      this.autoSaveAckCallbacks = this.autoSaveAckCallbacks.filter(
-        (cb) => cb !== callback,
-      );
-    };
+    return this._subscribe(this.autoSaveAckCallbacks, callback);
+  }
+
+  onUserJoined(callback: MessageCallback): () => void {
+    return this._subscribe(this.userJoinedCallbacks, callback);
+  }
+
+  onUserLeft(callback: MessageCallback): () => void {
+    return this._subscribe(this.userLeftCallbacks, callback);
+  }
+
+  onPresence(callback: MessageCallback): () => void {
+    return this._subscribe(this.presenceCallbacks, callback);
+  }
+
+  onRemoteOp(callback: MessageCallback): () => void {
+    return this._subscribe(this.remoteOpCallbacks, callback);
+  }
+
+  onSelectionUpdate(callback: MessageCallback): () => void {
+    return this._subscribe(this.selectionUpdateCallbacks, callback);
+  }
+
+  onCursorUpdate(callback: MessageCallback): () => void {
+    return this._subscribe(this.cursorUpdateCallbacks, callback);
   }
 
   disconnect(): void {
     this.isManualClose = true;
+    this.stopHeartbeat();
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
     }

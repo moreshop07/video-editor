@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTimelineStore, Track as TrackType } from '@/store/timelineStore';
+import { useCollaborationStore } from '@/store/collaborationStore';
 import { TrackRegistryProvider } from './TrackRegistry';
 import Track from './Track';
 
@@ -40,6 +41,12 @@ export default function Timeline() {
     selectClip,
     snapLine,
   } = useTimelineStore();
+
+  const connectedUsers = useCollaborationStore((s) => s.connectedUsers);
+  const remoteUsers = useMemo(
+    () => Object.values(connectedUsers).filter((u) => u.currentTime > 0),
+    [connectedUsers],
+  );
 
   // pixels per millisecond
   const pxPerMs = useMemo(() => 0.1 * zoom, [zoom]);
@@ -284,6 +291,22 @@ export default function Timeline() {
                   style={{ left: snapLine * pxPerMs }}
                 />
               )}
+
+              {/* Remote user cursors */}
+              {remoteUsers.map((user) => (
+                <div
+                  key={user.userId}
+                  className="absolute top-0 bottom-0 w-[1px] pointer-events-none z-10 opacity-60"
+                  style={{ left: user.currentTime * pxPerMs, backgroundColor: user.color }}
+                >
+                  <div
+                    className="absolute -top-4 left-1 whitespace-nowrap rounded px-1 py-0.5 text-[8px] text-white"
+                    style={{ backgroundColor: user.color }}
+                  >
+                    {user.username}
+                  </div>
+                </div>
+              ))}
 
               {/* Playhead */}
               <div

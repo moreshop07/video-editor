@@ -1,5 +1,6 @@
 from app.models.analysis import VideoAnalysis
 from app.models.asset import Asset, AssetType
+from app.models.collaborator import ProjectCollaborator
 from app.models.download import DownloadedVideo
 from app.models.effect import EffectPreset
 from app.models.music import MusicTrack, SoundEffect
@@ -13,6 +14,7 @@ from app.models.user import User
 __all__ = [
     "Asset",
     "AssetType",
+    "ProjectCollaborator",
     "DownloadedVideo",
     "EffectPreset",
     "JobStatus",

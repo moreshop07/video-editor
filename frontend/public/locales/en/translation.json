@@ -456,6 +456,21 @@
     "batchOpacity": "Opacity (All)",
     "selectAll": "Select All"
   },
+  "collaboration": {
+    "share": "Share",
+    "invite": "Invite",
+    "collaborators": "Collaborators",
+    "owner": "Owner",
+    "editor": "Editor",
+    "viewer": "Viewer",
+    "inviteByEmail": "Invite by email",
+    "remove": "Remove",
+    "noCollaborators": "No collaborators yet",
+    "userJoined": "{{name}} joined",
+    "userLeft": "{{name}} left",
+    "you": "You",
+    "online": "online"
+  },
   "shortcuts": {
     "title": "Keyboard Shortcuts",
     "playback": "Playback",

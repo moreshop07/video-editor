@@ -4,11 +4,12 @@ from typing import List
 
 import jsonpatch
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.core.security import get_current_user
+from app.models.collaborator import ProjectCollaborator
 from app.models.project import Project
 from app.models.user import User
 from app.schemas.project import (
@@ -30,9 +31,9 @@ async def _get_user_project(
     user: User,
     db: AsyncSession,
 ) -> Project:
-    """Fetch a project and verify ownership.  Raises 404 if not found."""
+    """Fetch a project and verify ownership or collaborator access.  Raises 404 if not found."""
     result = await db.execute(
-        select(Project).where(Project.id == project_id, Project.user_id == user.id)
+        select(Project).where(Project.id == project_id)
     )
     project = result.scalar_one_or_none()
     if project is None:
@@ -40,7 +41,25 @@ async def _get_user_project(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Project not found",
         )
-    return project
+
+    # Owner always has access
+    if project.user_id == user.id:
+        return project
+
+    # Check collaborator access
+    collab_result = await db.execute(
+        select(ProjectCollaborator).where(
+            ProjectCollaborator.project_id == project_id,
+            ProjectCollaborator.user_id == user.id,
+        )
+    )
+    if collab_result.scalar_one_or_none() is not None:
+        return project
+
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Project not found",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -83,9 +102,19 @@ async def list_projects(
 ) -> list[Project]:
     """List all projects belonging to the current user."""
 
+    # Include owned projects + projects where user is a collaborator
+    collab_project_ids = select(ProjectCollaborator.project_id).where(
+        ProjectCollaborator.user_id == current_user.id
+    ).scalar_subquery()
+
     result = await db.execute(
         select(Project)
-        .where(Project.user_id == current_user.id)
+        .where(
+            or_(
+                Project.user_id == current_user.id,
+                Project.id.in_(collab_project_ids),
+            )
+        )
         .order_by(Project.updated_at.desc())
     )
     return list(result.scalars().all())

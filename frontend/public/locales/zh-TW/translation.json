@@ -456,6 +456,21 @@
     "batchOpacity": "不透明度（全部）",
     "selectAll": "全選"
   },
+  "collaboration": {
+    "share": "分享",
+    "invite": "邀請",
+    "collaborators": "協作者",
+    "owner": "擁有者",
+    "editor": "編輯者",
+    "viewer": "檢視者",
+    "inviteByEmail": "輸入 Email 邀請",
+    "remove": "移除",
+    "noCollaborators": "尚無協作者",
+    "userJoined": "{{name}} 已加入",
+    "userLeft": "{{name}} 已離開",
+    "you": "你",
+    "online": "在線"
+  },
   "shortcuts": {
     "title": "鍵盤快捷鍵",
     "playback": "播放",

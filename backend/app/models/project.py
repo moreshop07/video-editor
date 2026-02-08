@@ -10,6 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
 if TYPE_CHECKING:
+    from app.models.collaborator import ProjectCollaborator
     from app.models.subtitle import SubtitleTrack
     from app.models.user import User
 
@@ -34,6 +35,7 @@ class Project(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -45,6 +47,9 @@ class Project(Base):
     user: Mapped["User"] = relationship("User", back_populates="projects")
     subtitle_tracks: Mapped[List["SubtitleTrack"]] = relationship(
         "SubtitleTrack", back_populates="project", lazy="selectin"
+    )
+    collaborators: Mapped[List["ProjectCollaborator"]] = relationship(
+        "ProjectCollaborator", back_populates="project", lazy="selectin"
     )
 
     def __repr__(self) -> str:

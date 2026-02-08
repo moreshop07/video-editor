@@ -7,6 +7,65 @@ import type { KeyframeTracks, AnimatableProperty } from '@/types/keyframes';
 import type { PipBorder } from '@/engine/types';
 import { setKeyframe, removeKeyframe } from '@/utils/keyframeUtils';
 
+// Collaboration broadcast support
+let _suppressBroadcast = false;
+let _broadcastFn: ((opType: string, payload: unknown) => void) | null = null;
+
+export function setBroadcastFn(fn: ((opType: string, payload: unknown) => void) | null): void {
+  _broadcastFn = fn;
+}
+
+function broadcast(opType: string, payload: unknown): void {
+  if (!_suppressBroadcast && _broadcastFn) {
+    _broadcastFn(opType, payload);
+  }
+}
+
+export function applyRemoteOp(opType: string, payload: Record<string, unknown>): void {
+  _suppressBroadcast = true;
+  const state = useTimelineStore.getState();
+  switch (opType) {
+    case 'add_clip':
+      state.addClip(payload.trackId as string, payload.clip as Omit<Clip, 'trackId'>);
+      break;
+    case 'remove_clip':
+      state.removeClip(payload.trackId as string, payload.clipId as string);
+      break;
+    case 'update_clip':
+      state.updateClip(
+        payload.trackId as string,
+        payload.clipId as string,
+        payload.updates as Partial<Clip>,
+      );
+      break;
+    case 'move_clip':
+      state.moveClip(
+        payload.fromTrackId as string,
+        payload.toTrackId as string,
+        payload.clipId as string,
+        payload.newStartTime as number,
+      );
+      break;
+    case 'split_clip':
+      state.splitClip(
+        payload.trackId as string,
+        payload.clipId as string,
+        payload.splitTime as number,
+      );
+      break;
+    case 'add_track':
+      state.addTrack(payload.type as Track['type'], payload.name as string | undefined);
+      break;
+    case 'remove_track':
+      state.removeTrack(payload.trackId as string);
+      break;
+    case 'toggle_track_mute':
+      state.toggleTrackMute(payload.trackId as string);
+      break;
+  }
+  _suppressBroadcast = false;
+}
+
 export interface Clip {
   id: string;
   assetId: string;
@@ -284,7 +343,7 @@ export const useTimelineStore = create<TimelineState>()(
       snapEnabled: true,
       snapLine: null,
 
-      addTrack: (type, name) =>
+      addTrack: (type, name) => {
         set((state) => ({
           tracks: [
             ...state.tracks,
@@ -299,19 +358,25 @@ export const useTimelineStore = create<TimelineState>()(
               visible: true,
             },
           ],
-        })),
+        }));
+        broadcast('add_track', { type, name });
+      },
 
-      removeTrack: (trackId) =>
+      removeTrack: (trackId) => {
         set((state) => ({
           tracks: state.tracks.filter((t) => t.id !== trackId),
-        })),
+        }));
+        broadcast('remove_track', { trackId });
+      },
 
-      toggleTrackMute: (trackId) =>
+      toggleTrackMute: (trackId) => {
         set((state) => ({
           tracks: state.tracks.map((t) =>
             t.id === trackId ? { ...t, muted: !t.muted } : t
           ),
-        })),
+        }));
+        broadcast('toggle_track_mute', { trackId });
+      },
 
       toggleTrackLock: (trackId) =>
         set((state) => ({
@@ -336,7 +401,7 @@ export const useTimelineStore = create<TimelineState>()(
           ),
         })),
 
-      addClip: (trackId, clip) =>
+      addClip: (trackId, clip) => {
         set((state) => ({
           tracks: state.tracks.map((track) => {
             if (track.id !== trackId) return track;
@@ -350,18 +415,22 @@ export const useTimelineStore = create<TimelineState>()(
             };
             return { ...track, clips: [...track.clips, newClip] };
           }),
-        })),
+        }));
+        broadcast('add_clip', { trackId, clip });
+      },
 
-      removeClip: (trackId, clipId) =>
+      removeClip: (trackId, clipId) => {
         set((state) => ({
           tracks: state.tracks.map((track) => {
             if (track.id !== trackId) return track;
             return { ...track, clips: track.clips.filter((c) => c.id !== clipId) };
           }),
           selectedClipIds: state.selectedClipIds.filter((id) => id !== clipId),
-        })),
+        }));
+        broadcast('remove_clip', { trackId, clipId });
+      },
 
-      moveClip: (fromTrackId, toTrackId, clipId, newStartTime) =>
+      moveClip: (fromTrackId, toTrackId, clipId, newStartTime) => {
         set((state) => {
           const sourceTrack = state.tracks.find((t) => t.id === fromTrackId);
           const clipToMove = sourceTrack?.clips.find((c) => c.id === clipId);
@@ -405,7 +474,9 @@ export const useTimelineStore = create<TimelineState>()(
               return track;
             }),
           };
-        }),
+        });
+        broadcast('move_clip', { fromTrackId, toTrackId, clipId, newStartTime });
+      },
 
       trimClip: (trackId, clipId, side, newTime) =>
         set((state) => ({
@@ -439,7 +510,7 @@ export const useTimelineStore = create<TimelineState>()(
           }),
         })),
 
-      splitClip: (trackId, clipId, splitTime) =>
+      splitClip: (trackId, clipId, splitTime) => {
         set((state) => ({
           tracks: state.tracks.map((track) => {
             if (track.id !== trackId) return track;
@@ -466,9 +537,11 @@ export const useTimelineStore = create<TimelineState>()(
             newClips.splice(clipIndex, 1, leftClip, rightClip);
             return { ...track, clips: newClips };
           }),
-        })),
+        }));
+        broadcast('split_clip', { trackId, clipId, splitTime });
+      },
 
-      updateClip: (trackId, clipId, updates) =>
+      updateClip: (trackId, clipId, updates) => {
         set((state) => ({
           tracks: state.tracks.map((track) => {
             if (track.id !== trackId) return track;
@@ -479,7 +552,9 @@ export const useTimelineStore = create<TimelineState>()(
               ),
             };
           }),
-        })),
+        }));
+        broadcast('update_clip', { trackId, clipId, updates });
+      },
 
       setClipTransition: (clipId, transition) =>
         set((state) => ({

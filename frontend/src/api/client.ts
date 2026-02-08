@@ -205,4 +205,16 @@ export const aiVideoApi = {
   }) => apiClient.post('/ai-video/generate', data),
 };
 
+// ---- Collaboration API ----
+export const collaborationApi = {
+  invite: (projectId: number, data: { email: string; role: string }) =>
+    apiClient.post(`/projects/${projectId}/collaborators`, data),
+  list: (projectId: number) =>
+    apiClient.get(`/projects/${projectId}/collaborators`),
+  updateRole: (projectId: number, userId: number, role: string) =>
+    apiClient.patch(`/projects/${projectId}/collaborators/${userId}`, { role }),
+  remove: (projectId: number, userId: number) =>
+    apiClient.delete(`/projects/${projectId}/collaborators/${userId}`),
+};
+
 export default apiClient;

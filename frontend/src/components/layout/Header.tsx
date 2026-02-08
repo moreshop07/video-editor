@@ -4,6 +4,8 @@ import { useStore } from 'zustand';
 import { useProjectStore } from '@/store/projectStore';
 import { useTimelineStore } from '@/store/timelineStore';
 import SaveIndicator from '@/components/editor/SaveIndicator';
+import CollaboratorAvatars from '@/components/editor/CollaboratorAvatars';
+import ShareDialog from '@/components/editor/ShareDialog';
 
 function HeaderComponent() {
   const { t, i18n } = useTranslation();
@@ -11,6 +13,7 @@ function HeaderComponent() {
 
   const [isEditingName, setIsEditingName] = useState(false);
   const [projectName, setProjectName] = useState(currentProject?.name || t('project.name'));
+  const [showShareDialog, setShowShareDialog] = useState(false);
 
   // Subscribe to temporal state for undo/redo button states
   const canUndo = useStore(
@@ -43,6 +46,7 @@ function HeaderComponent() {
   }, []);
 
   return (
+    <>
     <header className="flex h-12 items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-surface)] px-4">
       {/* Left: Project name */}
       <div className="flex items-center gap-3">
@@ -93,6 +97,15 @@ function HeaderComponent() {
 
       {/* Right: Actions */}
       <div className="flex items-center gap-2">
+        <CollaboratorAvatars />
+
+        <button
+          onClick={() => setShowShareDialog(true)}
+          className="rounded border border-[var(--color-border)] px-2 py-1 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-bg)] hover:text-[var(--color-text)]"
+        >
+          {t('collaboration.share')}
+        </button>
+
         <button
           onClick={toggleLanguage}
           className="rounded px-2 py-1 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-bg)] hover:text-[var(--color-text)]"
@@ -120,6 +133,9 @@ function HeaderComponent() {
         </button>
       </div>
     </header>
+
+    <ShareDialog open={showShareDialog} onClose={() => setShowShareDialog(false)} />
+    </>
   );
 }
 

@@ -10,6 +10,7 @@ import { useProjectStore, useAssetStore, useTimelineStore } from '@/store';
 import { ProjectWebSocket } from '@/api/websocket';
 import { useAutoSave } from '@/hooks/useAutoSave';
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { useCollaboration } from '@/hooks/useCollaboration';
 import ShortcutHelpDialog from '@/components/editor/ShortcutHelpDialog';
 import type { ProjectData } from '@/store/timelineStore';
 
@@ -27,6 +28,9 @@ export default function EditorPage() {
 
   // Auto-save timeline changes via WebSocket
   useAutoSave(wsRef.current);
+
+  // Real-time collaboration via WebSocket
+  useCollaboration(wsRef.current);
 
   // Load project data on mount
   useEffect(() => {
