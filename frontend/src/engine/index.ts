@@ -5,6 +5,8 @@ export { AudioMixerEngine } from './AudioMixerEngine';
 export { FrameScheduler } from './FrameScheduler';
 export { VideoDecoderPool } from './VideoDecoderPool';
 export { HTMLVideoPool } from './fallback/HTMLVideoPool';
+export { ExportEngine, getVideoBitrate } from './ExportEngine';
+export type { ExportConfig, ExportProgress, ExportStatus } from './ExportEngine';
 export type {
   EngineConfig,
   EngineState,

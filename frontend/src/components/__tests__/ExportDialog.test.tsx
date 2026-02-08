@@ -11,21 +11,36 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
-// Mock the store
-vi.mock('@/store', () => ({
-  useProjectStore: () => ({
-    currentProject: {
-      id: 1,
-      name: 'Test Project',
-    },
-  }),
+// Mock the timeline store
+vi.mock('@/store/timelineStore', () => ({
+  useTimelineStore: (selector: (s: Record<string, unknown>) => unknown) =>
+    selector({
+      tracks: [],
+      getTimelineDuration: () => 5000,
+    }),
 }));
 
-// Mock API client
-vi.mock('@/api/client', () => ({
-  default: {
-    post: vi.fn().mockResolvedValue({ data: { job_id: 42 } }),
+// Mock the subtitle store
+vi.mock('@/store/subtitleStore', () => ({
+  useSubtitleStore: (selector: (s: Record<string, unknown>) => unknown) =>
+    selector({
+      tracks: [],
+      activeTrackId: null,
+    }),
+}));
+
+// Mock ExportEngine
+vi.mock('@/engine/ExportEngine', () => ({
+  ExportEngine: class {
+    static isSupported() {
+      return true;
+    }
+    onProgress: null;
+    cancel = vi.fn();
+    getStatus = vi.fn().mockReturnValue('idle');
+    export = vi.fn().mockResolvedValue(new Blob(['test'], { type: 'video/mp4' }));
   },
+  getVideoBitrate: vi.fn().mockReturnValue(12000000),
 }));
 
 describe('ExportDialog', () => {
@@ -61,29 +76,19 @@ describe('ExportDialog', () => {
     expect(screen.getByText('startExport')).toBeInTheDocument();
   });
 
-  it('clicking start export triggers API call', async () => {
-    const user = userEvent.setup();
+  it('renders FPS options', () => {
     render(<ExportDialog open={true} onClose={onClose} />);
-
-    const exportBtn = screen.getByText('startExport');
-    await user.click(exportBtn);
-
-    const apiClient = await import('@/api/client');
-    expect(apiClient.default.post).toHaveBeenCalledWith(
-      '/projects/1/export',
-      expect.objectContaining({
-        format: 'mp4',
-        quality: 'high',
-      }),
-    );
+    expect(screen.getByText('24 fps')).toBeInTheDocument();
+    expect(screen.getByText('30 fps')).toBeInTheDocument();
+    expect(screen.getByText('60 fps')).toBeInTheDocument();
   });
 
-  it('calls onClose when cancel button is clicked', async () => {
+  it('calls onClose when close button is clicked', async () => {
     const user = userEvent.setup();
     render(<ExportDialog open={true} onClose={onClose} />);
 
-    const cancelBtn = screen.getByText('cancel');
-    await user.click(cancelBtn);
+    const closeBtn = screen.getByText('export.close');
+    await user.click(closeBtn);
 
     expect(onClose).toHaveBeenCalled();
   });

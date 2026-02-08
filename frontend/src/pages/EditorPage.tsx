@@ -88,7 +88,6 @@ export default function EditorPage() {
       <ExportDialog
         open={showExportDialog}
         onClose={() => setShowExportDialog(false)}
-        ws={wsRef.current}
       />
     </>
   );

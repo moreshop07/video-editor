@@ -106,7 +106,12 @@
     "completed": "Export Completed",
     "failed": "Export failed",
     "download": "Download",
-    "jobProgress": "Export Progress"
+    "jobProgress": "Export Progress",
+    "rendering": "Rendering...",
+    "fps": "Frame Rate",
+    "unsupported": "Your browser does not support WebCodecs video encoding. Please use Chrome 94+ or Edge 94+.",
+    "emptyTimeline": "Timeline is empty. Add media before exporting.",
+    "close": "Close"
   },
   "preview": {
     "noContent": "Add media to the timeline to preview"
