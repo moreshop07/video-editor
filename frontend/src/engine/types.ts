@@ -41,6 +41,10 @@ export interface RenderableClip {
   scaleX?: number;
   scaleY?: number;
   rotation?: number;
+  cropTop?: number;
+  cropBottom?: number;
+  cropLeft?: number;
+  cropRight?: number;
   transitionIn?: Transition;
   // Text properties
   textContent?: string;
@@ -75,6 +79,12 @@ export interface CompositeLayer {
     height: number;
     rotation?: number;
     border?: PipBorder;
+    sourceClip?: {
+      sx: number;
+      sy: number;
+      sw: number;
+      sh: number;
+    };
   };
 }
 

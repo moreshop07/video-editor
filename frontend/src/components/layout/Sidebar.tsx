@@ -16,6 +16,7 @@ import SmartAutoEditPanel from "@/components/smartedit/SmartAutoEditPanel";
 import CaptionAccessibilityPanel from "@/components/captions/CaptionAccessibilityPanel";
 import TTSPanel from "@/components/tts/TTSPanel";
 import TemplateBrowserPanel from "@/components/templates/TemplateBrowserPanel";
+import CropZoomPanel from "@/components/editor/panels/CropZoomPanel";
 
 type SidebarTab =
   | "assets"
@@ -33,7 +34,8 @@ type SidebarTab =
   | "smartEdit"
   | "captions"
   | "tts"
-  | "templates";
+  | "templates"
+  | "cropZoom";
 
 interface TabConfig {
   key: SidebarTab;
@@ -58,6 +60,7 @@ const tabs: TabConfig[] = [
   { key: "captions", labelKey: "captions.title", icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" },
   { key: "tts", labelKey: "tts.title", icon: "M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" },
   { key: "templates", labelKey: "template.browser", icon: "M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" },
+  { key: "cropZoom", labelKey: "cropZoom.title", icon: "M4 4h7V2H2v9h2V4zm13 0v7h2V2h-9v2h7zM4 20v-7H2v9h9v-2H4zm16 0h-7v2h9v-9h-2v7z" },
 ];
 
 function SidebarComponent() {
@@ -98,6 +101,8 @@ function SidebarComponent() {
         return <TTSPanel />;
       case "templates":
         return <TemplateBrowserPanel />;
+      case "cropZoom":
+        return <CropZoomPanel />;
       default:
         return null;
     }

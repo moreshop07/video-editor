@@ -60,7 +60,12 @@ export class CanvasCompositor {
             this.ctx.shadowBlur = 0;
           }
 
-          this.ctx.drawImage(layer.frame, -width / 2, -height / 2, width, height);
+          if (layer.transform.sourceClip) {
+            const { sx, sy, sw, sh } = layer.transform.sourceClip;
+            this.ctx.drawImage(layer.frame, sx, sy, sw, sh, -width / 2, -height / 2, width, height);
+          } else {
+            this.ctx.drawImage(layer.frame, -width / 2, -height / 2, width, height);
+          }
           this.ctx.restore();
         } else {
           // Border/shadow for PiP (no rotation)
@@ -83,7 +88,12 @@ export class CanvasCompositor {
             this.ctx.restore();
           }
 
-          this.ctx.drawImage(layer.frame, x, y, width, height);
+          if (layer.transform.sourceClip) {
+            const { sx, sy, sw, sh } = layer.transform.sourceClip;
+            this.ctx.drawImage(layer.frame, sx, sy, sw, sh, x, y, width, height);
+          } else {
+            this.ctx.drawImage(layer.frame, x, y, width, height);
+          }
         }
       } else {
         // Aspect-fit into canvas
@@ -169,6 +179,18 @@ export class CanvasCompositor {
     }
 
     ctx.restore();
+  }
+
+  /**
+   * Render cinematic letterbox bars (top and bottom).
+   * @param barFraction - fraction of canvas height for each bar (e.g. 0.128 for 2.39:1)
+   */
+  renderLetterbox(barFraction: number): void {
+    if (barFraction <= 0) return;
+    const barHeight = Math.round(this.height * barFraction);
+    this.ctx.fillStyle = '#000';
+    this.ctx.fillRect(0, 0, this.width, barHeight);
+    this.ctx.fillRect(0, this.height - barHeight, this.width, barHeight);
   }
 
   private calculateAspectFit(

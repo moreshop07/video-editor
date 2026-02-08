@@ -132,7 +132,50 @@
     "scaleY": "Scale Y",
     "scale": "Scale",
     "rotation": "Rotation",
-    "opacity": "Opacity"
+    "opacity": "Opacity",
+    "cropTop": "Crop Top",
+    "cropBottom": "Crop Bottom",
+    "cropLeft": "Crop Left",
+    "cropRight": "Crop Right"
+  },
+  "crop": {
+    "title": "Crop",
+    "preset": "Aspect Ratio",
+    "none": "None",
+    "preset16_9": "16:9",
+    "preset9_16": "9:16 (Vertical)",
+    "preset4_3": "4:3",
+    "preset1_1": "1:1 (Square)",
+    "presetCinemascope": "2.39:1 Cinemascope",
+    "presetAnamorphic": "2.35:1 Anamorphic",
+    "reset": "Reset Crop",
+    "videoOnly": "Crop is available for video clips only"
+  },
+  "letterbox": {
+    "title": "Letterbox",
+    "none": "None",
+    "scope": "2.39:1 Scope",
+    "anamorphic": "2.35:1 Anamorphic",
+    "flat": "1.85:1 Flat"
+  },
+  "kenBurns": {
+    "title": "Ken Burns",
+    "slowZoomIn": "Slow Zoom In",
+    "slowZoomOut": "Slow Zoom Out",
+    "panLeftToRight": "Pan Left → Right",
+    "panRightToLeft": "Pan Right → Left",
+    "zoomInWithPan": "Zoom In + Pan",
+    "remove": "Remove Ken Burns"
+  },
+  "cropZoom": {
+    "title": "Crop & Zoom"
+  },
+  "guides": {
+    "title": "Guides",
+    "ruleOfThirds": "Rule of Thirds",
+    "centerCrosshair": "Center Crosshair",
+    "titleSafe": "Title Safe (90%)",
+    "actionSafe": "Action Safe (93%)"
   },
   "keyframes": {
     "title": "Keyframes",

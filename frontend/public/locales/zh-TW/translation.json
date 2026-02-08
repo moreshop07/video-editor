@@ -132,7 +132,50 @@
     "scaleY": "Y 縮放",
     "scale": "縮放",
     "rotation": "旋轉",
-    "opacity": "不透明度"
+    "opacity": "不透明度",
+    "cropTop": "裁切上方",
+    "cropBottom": "裁切下方",
+    "cropLeft": "裁切左方",
+    "cropRight": "裁切右方"
+  },
+  "crop": {
+    "title": "裁切",
+    "preset": "長寬比",
+    "none": "無",
+    "preset16_9": "16:9",
+    "preset9_16": "9:16（直式）",
+    "preset4_3": "4:3",
+    "preset1_1": "1:1（方形）",
+    "presetCinemascope": "2.39:1 寬銀幕",
+    "presetAnamorphic": "2.35:1 變形寬銀幕",
+    "reset": "重設裁切",
+    "videoOnly": "裁切僅適用於影片片段"
+  },
+  "letterbox": {
+    "title": "信箱遮罩",
+    "none": "無",
+    "scope": "2.39:1 寬銀幕",
+    "anamorphic": "2.35:1 變形",
+    "flat": "1.85:1 平面"
+  },
+  "kenBurns": {
+    "title": "肯伯恩斯效果",
+    "slowZoomIn": "慢速放大",
+    "slowZoomOut": "慢速縮小",
+    "panLeftToRight": "左→右平移",
+    "panRightToLeft": "右→左平移",
+    "zoomInWithPan": "放大＋平移",
+    "remove": "移除肯伯恩斯效果"
+  },
+  "cropZoom": {
+    "title": "裁切與縮放"
+  },
+  "guides": {
+    "title": "輔助線",
+    "ruleOfThirds": "三分法",
+    "centerCrosshair": "中心十字",
+    "titleSafe": "標題安全區 (90%)",
+    "actionSafe": "動作安全區 (93%)"
   },
   "keyframes": {
     "title": "關鍵影格",

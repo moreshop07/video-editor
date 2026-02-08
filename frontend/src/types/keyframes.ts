@@ -10,6 +10,10 @@ export type AnimatableProperty =
   | 'scaleY'
   | 'rotation'
   | 'opacity'
+  | 'cropTop'
+  | 'cropBottom'
+  | 'cropLeft'
+  | 'cropRight'
   | 'textRevealProgress';
 
 export type EasingType = 'linear' | 'easeIn' | 'easeOut' | 'easeInOut';
@@ -40,6 +44,10 @@ export const ANIMATABLE_PROPERTY_DEFAULTS: Record<AnimatableProperty, number> = 
   scaleY: 1,
   rotation: 0,
   opacity: 1,
+  cropTop: 0,
+  cropBottom: 0,
+  cropLeft: 0,
+  cropRight: 0,
   textRevealProgress: 1,
 };
 
@@ -90,6 +98,34 @@ export const ANIMATABLE_PROPERTY_INFO: Record<AnimatableProperty, {
     labelKey: 'properties.opacity',
     min: 0,
     max: 1,
+    step: 0.01,
+    format: (v) => `${Math.round(v * 100)}%`,
+  },
+  cropTop: {
+    labelKey: 'properties.cropTop',
+    min: 0,
+    max: 0.5,
+    step: 0.01,
+    format: (v) => `${Math.round(v * 100)}%`,
+  },
+  cropBottom: {
+    labelKey: 'properties.cropBottom',
+    min: 0,
+    max: 0.5,
+    step: 0.01,
+    format: (v) => `${Math.round(v * 100)}%`,
+  },
+  cropLeft: {
+    labelKey: 'properties.cropLeft',
+    min: 0,
+    max: 0.5,
+    step: 0.01,
+    format: (v) => `${Math.round(v * 100)}%`,
+  },
+  cropRight: {
+    labelKey: 'properties.cropRight',
+    min: 0,
+    max: 0.5,
     step: 0.01,
     format: (v) => `${Math.round(v * 100)}%`,
   },

@@ -30,6 +30,10 @@ const ANIMATABLE_PROPERTIES: AnimatableProperty[] = [
   'scaleY',
   'rotation',
   'opacity',
+  'cropTop',
+  'cropBottom',
+  'cropLeft',
+  'cropRight',
   'textRevealProgress',
 ];
 

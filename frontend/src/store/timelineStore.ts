@@ -107,6 +107,12 @@ export interface Clip {
 
   // PiP border
   pipBorder?: PipBorder;
+
+  // Crop
+  cropTop?: number;     // 0–1, fraction of source height
+  cropBottom?: number;
+  cropLeft?: number;    // 0–1, fraction of source width
+  cropRight?: number;
 }
 
 export interface Track {
@@ -167,6 +173,10 @@ export interface ProjectData {
         textAnimationOut?: string;
         keyframes?: KeyframeTracks;
         pipBorder?: PipBorder;
+        cropTop?: number;
+        cropBottom?: number;
+        cropLeft?: number;
+        cropRight?: number;
       }>;
     }>;
     zoom: number;
@@ -228,6 +238,11 @@ export function serializeForSave(state: {
           keyframes: c.keyframes,
           // PiP border
           pipBorder: c.pipBorder,
+          // Crop
+          cropTop: c.cropTop,
+          cropBottom: c.cropBottom,
+          cropLeft: c.cropLeft,
+          cropRight: c.cropRight,
         })),
       })),
       zoom: state.zoom,
@@ -267,6 +282,7 @@ interface TimelineState {
   setClipTransition: (clipId: string, transition: Transition | undefined) => void;
   setClipKeyframe: (clipId: string, property: AnimatableProperty, timeMs: number, value: number) => void;
   removeClipKeyframe: (clipId: string, property: AnimatableProperty, timeMs: number) => void;
+  removeClipKeyframeTrack: (trackId: string, clipId: string, property: string) => void;
 
   // Batch operations
   removeSelectedClips: () => void;
@@ -590,6 +606,22 @@ export const useTimelineStore = create<TimelineState>()(
           })),
         })),
 
+      removeClipKeyframeTrack: (trackId, clipId, property) =>
+        set((state) => ({
+          tracks: state.tracks.map((track) =>
+            track.id === trackId
+              ? {
+                  ...track,
+                  clips: track.clips.map((c) => {
+                    if (c.id !== clipId || !c.keyframes) return c;
+                    const { [property]: _, ...rest } = c.keyframes;
+                    return { ...c, keyframes: Object.keys(rest).length > 0 ? rest : undefined };
+                  }),
+                }
+              : track
+          ),
+        })),
+
       play: () => set({ isPlaying: true }),
       pause: () => set({ isPlaying: false }),
       togglePlay: () => set((s) => ({ isPlaying: !s.isPlaying })),
@@ -742,6 +774,11 @@ export const useTimelineStore = create<TimelineState>()(
               keyframes: c.keyframes,
               // PiP border
               pipBorder: c.pipBorder,
+              // Crop
+              cropTop: c.cropTop,
+              cropBottom: c.cropBottom,
+              cropLeft: c.cropLeft,
+              cropRight: c.cropRight,
             })),
           })),
           zoom: data.timeline.zoom ?? 1,

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTimelineStore } from '@/store/timelineStore';
 import { useSubtitleStore } from '@/store/subtitleStore';
@@ -24,6 +24,9 @@ export default function VideoPreview() {
   const [isMuted, setIsMuted] = useState(false);
   const [canvasSize, setCanvasSize] = useState({ width: 640, height: 360 });
   const [hasContent, setHasContent] = useState(false);
+  const [letterboxFraction, setLetterboxFraction] = useState(0);
+  const [guides, setGuides] = useState({ thirds: false, center: false, titleSafe: false, actionSafe: false });
+  const guidesCanvasRef = useRef<HTMLCanvasElement>(null);
 
   const isPlaying = useTimelineStore((s) => s.isPlaying);
   const currentTime = useTimelineStore((s) => s.currentTime);
@@ -115,6 +118,11 @@ export default function VideoPreview() {
         scaleY: c.scaleY,
         rotation: c.rotation,
         pipBorder: c.pipBorder,
+        cropTop: c.cropTop,
+        cropBottom: c.cropBottom,
+        cropLeft: c.cropLeft,
+        cropRight: c.cropRight,
+        keyframes: c.keyframes,
       })),
       muted: t.muted,
       visible: t.visible,
@@ -185,6 +193,59 @@ export default function VideoPreview() {
     engine.setMasterVolume(isMuted ? 0 : volume);
   }, [volume, isMuted]);
 
+  // Listen for letterbox changes from CropZoomPanel
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      const fraction = detail.barFraction ?? 0;
+      setLetterboxFraction(fraction);
+      engineRef.current?.setLetterbox(fraction);
+    };
+    window.addEventListener('letterbox-change', handler);
+    return () => window.removeEventListener('letterbox-change', handler);
+  }, []);
+
+  // Draw safe area guides overlay
+  useEffect(() => {
+    const canvas = guidesCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.clearRect(0, 0, canvasSize.width, canvasSize.height);
+
+    const w = canvasSize.width;
+    const h = canvasSize.height;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.lineWidth = 1;
+
+    if (guides.thirds) {
+      ctx.beginPath();
+      ctx.moveTo(w / 3, 0); ctx.lineTo(w / 3, h);
+      ctx.moveTo((2 * w) / 3, 0); ctx.lineTo((2 * w) / 3, h);
+      ctx.moveTo(0, h / 3); ctx.lineTo(w, h / 3);
+      ctx.moveTo(0, (2 * h) / 3); ctx.lineTo(w, (2 * h) / 3);
+      ctx.stroke();
+    }
+
+    if (guides.center) {
+      ctx.beginPath();
+      ctx.moveTo(w / 2, 0); ctx.lineTo(w / 2, h);
+      ctx.moveTo(0, h / 2); ctx.lineTo(w, h / 2);
+      ctx.stroke();
+    }
+
+    if (guides.titleSafe) {
+      ctx.strokeStyle = 'rgba(255, 200, 0, 0.3)';
+      ctx.strokeRect(w * 0.05, h * 0.05, w * 0.9, h * 0.9);
+    }
+
+    if (guides.actionSafe) {
+      ctx.strokeStyle = 'rgba(0, 200, 255, 0.3)';
+      ctx.strokeRect(w * 0.035, h * 0.035, w * 0.93, h * 0.93);
+    }
+  }, [canvasSize, guides]);
+
   // Calculate total duration for seekbar
   const totalDuration = useTimelineStore((s) => s.getTimelineDuration());
 
@@ -207,12 +268,21 @@ export default function VideoPreview() {
             height={canvasSize.height}
             className="bg-black rounded"
           />
+          {/* Guides overlay canvas */}
+          <canvas
+            ref={guidesCanvasRef}
+            width={canvasSize.width}
+            height={canvasSize.height}
+            className="absolute inset-0 pointer-events-none"
+          />
           {/* No content overlay */}
           {!hasContent && (
             <div className="absolute inset-0 flex items-center justify-center text-[var(--color-text-secondary)] text-sm">
               {t('preview.noContent')}
             </div>
           )}
+          {/* Guides toggle dropdown */}
+          <GuidesDropdown guides={guides} setGuides={setGuides} />
         </div>
       </div>
 
@@ -280,6 +350,61 @@ export default function VideoPreview() {
           />
         </div>
       </div>
+    </div>
+  );
+}
+
+interface GuidesState {
+  thirds: boolean;
+  center: boolean;
+  titleSafe: boolean;
+  actionSafe: boolean;
+}
+
+function GuidesDropdown({
+  guides,
+  setGuides,
+}: {
+  guides: GuidesState;
+  setGuides: React.Dispatch<React.SetStateAction<GuidesState>>;
+}) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="absolute top-1 right-1">
+      <button
+        onClick={() => setOpen(!open)}
+        className="p-1 rounded bg-black/50 text-white/60 hover:text-white/90 text-[10px]"
+        title={t('guides.title')}
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute right-0 top-7 bg-[var(--color-surface)] border border-[var(--color-border)] rounded shadow-lg p-2 min-w-[140px] z-10">
+          <div className="text-[10px] font-medium text-[var(--color-text-secondary)] mb-1">
+            {t('guides.title')}
+          </div>
+          {([
+            ['thirds', t('guides.ruleOfThirds')],
+            ['center', t('guides.centerCrosshair')],
+            ['titleSafe', t('guides.titleSafe')],
+            ['actionSafe', t('guides.actionSafe')],
+          ] as [keyof GuidesState, string][]).map(([key, label]) => (
+            <label key={key} className="flex items-center gap-2 py-0.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={guides[key]}
+                onChange={() => setGuides((g) => ({ ...g, [key]: !g[key] }))}
+                className="accent-[var(--color-primary)]"
+              />
+              <span className="text-[10px] text-[var(--color-text)]">{label}</span>
+            </label>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

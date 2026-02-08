@@ -39,6 +39,7 @@ export class CompositorEngine {
 
   private tracks: RenderableTrack[] = [];
   private subtitleSegments: SubtitleEntry[] = [];
+  private letterboxFraction = 0;
   private urlResolver: ((assetId: string) => string) | null = null;
   private preloadedAssets = new Set<string>();
   private state: EngineState = 'idle';
@@ -132,6 +133,10 @@ export class CompositorEngine {
     this.subtitleSegments = segments;
   }
 
+  setLetterbox(fraction: number): void {
+    this.letterboxFraction = fraction;
+  }
+
   setTracks(tracks: RenderableTrack[]): void {
     this.tracks = tracks;
     this.filterCache.clear(); // Clear filter cache when tracks change
@@ -210,7 +215,7 @@ export class CompositorEngine {
    */
   private getInterpolatedClipProperty(
     clip: RenderableClip,
-    property: 'positionX' | 'positionY' | 'scaleX' | 'scaleY' | 'rotation' | 'opacity',
+    property: 'positionX' | 'positionY' | 'scaleX' | 'scaleY' | 'rotation' | 'opacity' | 'cropTop' | 'cropBottom' | 'cropLeft' | 'cropRight',
     clipTimeMs: number,
   ): number {
     // Check for keyframes
@@ -233,6 +238,14 @@ export class CompositorEngine {
         return clip.rotation ?? ANIMATABLE_PROPERTY_DEFAULTS.rotation;
       case 'opacity':
         return clip.opacity ?? ANIMATABLE_PROPERTY_DEFAULTS.opacity;
+      case 'cropTop':
+        return clip.cropTop ?? ANIMATABLE_PROPERTY_DEFAULTS.cropTop;
+      case 'cropBottom':
+        return clip.cropBottom ?? ANIMATABLE_PROPERTY_DEFAULTS.cropBottom;
+      case 'cropLeft':
+        return clip.cropLeft ?? ANIMATABLE_PROPERTY_DEFAULTS.cropLeft;
+      case 'cropRight':
+        return clip.cropRight ?? ANIMATABLE_PROPERTY_DEFAULTS.cropRight;
       default:
         return ANIMATABLE_PROPERTY_DEFAULTS[property];
     }
@@ -386,6 +399,11 @@ export class CompositorEngine {
         translatedText: activeSub.translated_text,
         style: activeSub.style ?? null,
       });
+    }
+
+    // Render letterbox bars on top of everything
+    if (this.letterboxFraction > 0) {
+      this.compositor.renderLetterbox(this.letterboxFraction);
     }
   }
 
@@ -617,6 +635,13 @@ export class CompositorEngine {
     const opacity = this.getInterpolatedClipProperty(clip, 'opacity', clipTimeMs);
     const textRevealProgress = this.getInterpolatedClipProperty(clip, 'textRevealProgress', clipTimeMs);
 
+    // Crop interpolation
+    const cropTop = this.getInterpolatedClipProperty(clip, 'cropTop', clipTimeMs);
+    const cropBottom = this.getInterpolatedClipProperty(clip, 'cropBottom', clipTimeMs);
+    const cropLeft = this.getInterpolatedClipProperty(clip, 'cropLeft', clipTimeMs);
+    const cropRight = this.getInterpolatedClipProperty(clip, 'cropRight', clipTimeMs);
+    const hasCrop = cropTop > 0 || cropBottom > 0 || cropLeft > 0 || cropRight > 0;
+
     try {
       let frame: ImageBitmap | null = null;
 
@@ -711,6 +736,7 @@ export class CompositorEngine {
       // Compute pixel transform from interpolated clip values
       const hasTransform =
         clip.positionX != null || clip.scaleX != null || clip.rotation ||
+        hasCrop ||
         (clip.keyframes && Object.keys(clip.keyframes).length > 0);
       let transform: CompositeLayer['transform'] | undefined;
       if (hasTransform && frame) {
@@ -718,6 +744,17 @@ export class CompositorEngine {
         const h = frame.height * scaleY;
         const px = positionX * this.config.width - w / 2;
         const py = positionY * this.config.height - h / 2;
+
+        // Compute source crop rectangle from crop fractions
+        let sourceClip: { sx: number; sy: number; sw: number; sh: number } | undefined;
+        if (hasCrop) {
+          const sx = cropLeft * frame.width;
+          const sy = cropTop * frame.height;
+          const sw = frame.width * (1 - cropLeft - cropRight);
+          const sh = frame.height * (1 - cropTop - cropBottom);
+          sourceClip = { sx, sy, sw, sh };
+        }
+
         transform = {
           x: px,
           y: py,
@@ -725,6 +762,7 @@ export class CompositorEngine {
           height: h,
           rotation,
           border: clip.pipBorder,
+          sourceClip,
         };
       }
 

@@ -194,8 +194,13 @@ function PropertiesPanelComponent() {
     scaleX: clip.scaleX ?? ANIMATABLE_PROPERTY_DEFAULTS.scaleX,
     scaleY: clip.scaleY ?? ANIMATABLE_PROPERTY_DEFAULTS.scaleY,
     rotation: clip.rotation ?? ANIMATABLE_PROPERTY_DEFAULTS.rotation,
-    opacity: 1, // Default opacity
-  }), [clip.positionX, clip.positionY, clip.scaleX, clip.scaleY, clip.rotation]);
+    opacity: 1,
+    cropTop: clip.cropTop ?? 0,
+    cropBottom: clip.cropBottom ?? 0,
+    cropLeft: clip.cropLeft ?? 0,
+    cropRight: clip.cropRight ?? 0,
+    textRevealProgress: 1,
+  }), [clip.positionX, clip.positionY, clip.scaleX, clip.scaleY, clip.rotation, clip.cropTop, clip.cropBottom, clip.cropLeft, clip.cropRight]);
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -338,6 +343,59 @@ function PropertiesPanelComponent() {
           />
           {/* PiP Border */}
           <PipBorderSection clip={clip} trackId={track.id} />
+
+          {/* Crop */}
+          <div className="text-[10px] font-medium uppercase tracking-wider text-[var(--color-text-secondary)] mt-2">
+            {t('crop.title')}
+          </div>
+          <PropertySlider
+            label={t('properties.cropTop')}
+            value={clip.cropTop ?? 0}
+            min={0}
+            max={0.5}
+            step={0.01}
+            onChange={(v) => handleUpdate('cropTop', v)}
+            format={(v) => `${Math.round(v * 100)}%`}
+          />
+          <PropertySlider
+            label={t('properties.cropBottom')}
+            value={clip.cropBottom ?? 0}
+            min={0}
+            max={0.5}
+            step={0.01}
+            onChange={(v) => handleUpdate('cropBottom', v)}
+            format={(v) => `${Math.round(v * 100)}%`}
+          />
+          <PropertySlider
+            label={t('properties.cropLeft')}
+            value={clip.cropLeft ?? 0}
+            min={0}
+            max={0.5}
+            step={0.01}
+            onChange={(v) => handleUpdate('cropLeft', v)}
+            format={(v) => `${Math.round(v * 100)}%`}
+          />
+          <PropertySlider
+            label={t('properties.cropRight')}
+            value={clip.cropRight ?? 0}
+            min={0}
+            max={0.5}
+            step={0.01}
+            onChange={(v) => handleUpdate('cropRight', v)}
+            format={(v) => `${Math.round(v * 100)}%`}
+          />
+          {(clip.cropTop || clip.cropBottom || clip.cropLeft || clip.cropRight) ? (
+            <button
+              onClick={() => {
+                updateClip(track.id, clip.id, {
+                  cropTop: 0, cropBottom: 0, cropLeft: 0, cropRight: 0,
+                });
+              }}
+              className="text-[10px] text-[var(--color-text-secondary)] hover:text-[var(--color-text)] underline"
+            >
+              {t('crop.reset')}
+            </button>
+          ) : null}
         </div>
       )}
 
