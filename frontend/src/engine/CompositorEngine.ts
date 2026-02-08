@@ -18,6 +18,7 @@ import { buildCanvasFilterString } from '@/effects/buildCanvasFilter';
 import { TransitionRenderer } from './TransitionRenderer';
 import { TextRenderer } from './TextRenderer';
 import { ChromaKeyProcessor } from './ChromaKeyProcessor';
+import { ColorGradingProcessor } from './ColorGradingProcessor';
 import { getInterpolatedValue } from '@/utils/keyframeUtils';
 import { ANIMATABLE_PROPERTY_DEFAULTS } from '@/types/keyframes';
 
@@ -55,6 +56,9 @@ export class CompositorEngine {
   // Chroma key processor
   private chromaKeyProcessor: ChromaKeyProcessor;
 
+  // Color grading processor
+  private colorGradingProcessor: ColorGradingProcessor;
+
   // Callbacks
   onTimeUpdate: ((timeMs: number) => void) | null = null;
   onStateChange: ((state: EngineState) => void) | null = null;
@@ -75,6 +79,7 @@ export class CompositorEngine {
     }
 
     this.chromaKeyProcessor = new ChromaKeyProcessor(config.width, config.height);
+    this.colorGradingProcessor = new ColorGradingProcessor(config.width, config.height);
   }
 
   async init(): Promise<void> {
@@ -684,6 +689,19 @@ export class CompositorEngine {
         frame = processed;
       }
 
+      // Apply color grading if enabled
+      const colorGrading = clip.filters?.colorGrading;
+      if (colorGrading?.enabled && frame) {
+        const processed = await this.colorGradingProcessor.process(
+          frame,
+          frame.width,
+          frame.height,
+          colorGrading,
+        );
+        this.pendingBitmaps.push(processed);
+        frame = processed;
+      }
+
       // Get cached filter string (memoized for performance)
       const filter = this.getCachedFilterString(clip);
 
@@ -739,6 +757,7 @@ export class CompositorEngine {
     this.filterCache.clear();
 
     this.chromaKeyProcessor.dispose();
+    this.colorGradingProcessor.dispose();
     this.scheduler.dispose();
     this.audioMixer.dispose();
     this.decoderPool.releaseAll();

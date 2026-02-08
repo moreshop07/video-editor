@@ -273,6 +273,24 @@
     "zoomOut": "縮小",
     "duration": "時長"
   },
+  "colorGrading": {
+    "title": "進階調色",
+    "preset": "預設",
+    "none": "無",
+    "cinematic": "電影感",
+    "vintage": "復古",
+    "coolTone": "冷色調",
+    "highContrast": "高對比",
+    "warmGlow": "暖光",
+    "temperature": "色溫",
+    "tint": "色調",
+    "shadows": "陰影",
+    "highlights": "高光",
+    "gamma": "伽瑪",
+    "lut": "LUT 檔案",
+    "uploadLut": "上傳 .cube",
+    "clearLut": "清除"
+  },
   "chromaKey": {
     "title": "去背 (色度鍵)",
     "keyColor": "鍵色",

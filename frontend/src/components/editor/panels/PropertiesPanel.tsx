@@ -2,8 +2,10 @@ import React, { useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTimelineStore, type Clip, type Track } from '@/store/timelineStore';
 import { getEffectDefinition } from '@/effects/effectDefinitions';
-import type { ClipFilters, ChromaKeySettings } from '@/effects/types';
-import { DEFAULT_CLIP_FILTERS, DEFAULT_CHROMA_KEY } from '@/effects/types';
+import type { ClipFilters, ChromaKeySettings, ColorGradingSettings } from '@/effects/types';
+import { DEFAULT_CLIP_FILTERS, DEFAULT_CHROMA_KEY, DEFAULT_COLOR_GRADING } from '@/effects/types';
+import { colorGradingPresets } from '@/effects/colorGradingPresets';
+import { parseCubeFile } from '@/effects/lutParser';
 import type { Transition } from '@/types/transitions';
 import type { AnimatableProperty } from '@/types/keyframes';
 import { ANIMATABLE_PROPERTY_DEFAULTS } from '@/types/keyframes';
@@ -81,6 +83,37 @@ function PropertiesPanelComponent() {
       });
     },
     [selectedData, updateClip],
+  );
+
+  const handleColorGradingUpdate = useCallback(
+    (colorGrading: ColorGradingSettings) => {
+      if (!selectedData) return;
+      const filters: ClipFilters = selectedData.clip.filters ?? DEFAULT_CLIP_FILTERS;
+      updateClip(selectedData.track.id, selectedData.clip.id, {
+        filters: { ...filters, colorGrading },
+      });
+    },
+    [selectedData, updateClip],
+  );
+
+  const handleLutUpload = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file || !selectedData) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const lut = parseCubeFile(reader.result as string);
+          const current = selectedData.clip.filters?.colorGrading ?? { ...DEFAULT_COLOR_GRADING, enabled: true };
+          handleColorGradingUpdate({ ...current, enabled: true, lut });
+        } catch {
+          // Invalid LUT file
+        }
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    },
+    [selectedData, handleColorGradingUpdate],
   );
 
   if (!selectedData) {
@@ -499,6 +532,138 @@ function PropertiesPanelComponent() {
                 onChange={(v) => handleChromaKeyUpdate({ ...clipFilters.chromaKey!, despill: v })}
                 format={(v) => `${Math.round(v * 100)}%`}
               />
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Color Grading */}
+      {isVideoType && (
+        <div className="flex flex-col gap-3 border-t border-[var(--color-border)] pt-3">
+          <div className="flex items-center justify-between">
+            <div className="text-[10px] font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">
+              {t('colorGrading.title')}
+            </div>
+            <button
+              onClick={() => {
+                const current = clipFilters.colorGrading ?? DEFAULT_COLOR_GRADING;
+                handleColorGradingUpdate({ ...current, enabled: !current.enabled });
+              }}
+              className={`relative h-4 w-8 rounded-full transition-colors ${
+                clipFilters.colorGrading?.enabled
+                  ? 'bg-[var(--color-primary)]'
+                  : 'bg-white/20'
+              }`}
+            >
+              <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition-transform ${
+                clipFilters.colorGrading?.enabled ? 'translate-x-4' : 'translate-x-0.5'
+              }`} />
+            </button>
+          </div>
+
+          {clipFilters.colorGrading?.enabled && (
+            <>
+              {/* Preset selector */}
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] text-[var(--color-text-secondary)]">
+                  {t('colorGrading.preset')}
+                </label>
+                <select
+                  onChange={(e) => {
+                    const preset = colorGradingPresets.find((p) => p.id === e.target.value);
+                    if (preset) {
+                      handleColorGradingUpdate({
+                        ...clipFilters.colorGrading!,
+                        ...preset.settings,
+                      });
+                    }
+                  }}
+                  defaultValue=""
+                  className="rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1 text-[10px] text-[var(--color-text)] outline-none"
+                >
+                  <option value="" disabled>{t('colorGrading.none')}</option>
+                  {colorGradingPresets.map((p) => (
+                    <option key={p.id} value={p.id}>{t(p.labelKey)}</option>
+                  ))}
+                </select>
+              </div>
+
+              <PropertySlider
+                label={t('colorGrading.temperature')}
+                value={clipFilters.colorGrading.temperature}
+                min={-1}
+                max={1}
+                step={0.01}
+                onChange={(v) => handleColorGradingUpdate({ ...clipFilters.colorGrading!, temperature: v })}
+                format={(v) => `${v > 0 ? '+' : ''}${Math.round(v * 100)}%`}
+              />
+              <PropertySlider
+                label={t('colorGrading.tint')}
+                value={clipFilters.colorGrading.tint}
+                min={-1}
+                max={1}
+                step={0.01}
+                onChange={(v) => handleColorGradingUpdate({ ...clipFilters.colorGrading!, tint: v })}
+                format={(v) => `${v > 0 ? '+' : ''}${Math.round(v * 100)}%`}
+              />
+              <PropertySlider
+                label={t('colorGrading.shadows')}
+                value={clipFilters.colorGrading.shadows}
+                min={-1}
+                max={1}
+                step={0.01}
+                onChange={(v) => handleColorGradingUpdate({ ...clipFilters.colorGrading!, shadows: v })}
+                format={(v) => `${v > 0 ? '+' : ''}${Math.round(v * 100)}%`}
+              />
+              <PropertySlider
+                label={t('colorGrading.highlights')}
+                value={clipFilters.colorGrading.highlights}
+                min={-1}
+                max={1}
+                step={0.01}
+                onChange={(v) => handleColorGradingUpdate({ ...clipFilters.colorGrading!, highlights: v })}
+                format={(v) => `${v > 0 ? '+' : ''}${Math.round(v * 100)}%`}
+              />
+              <PropertySlider
+                label={t('colorGrading.gamma')}
+                value={clipFilters.colorGrading.gamma}
+                min={0.2}
+                max={3.0}
+                step={0.05}
+                onChange={(v) => handleColorGradingUpdate({ ...clipFilters.colorGrading!, gamma: v })}
+                format={(v) => v.toFixed(2)}
+              />
+
+              {/* LUT upload */}
+              <div className="flex flex-col gap-1">
+                <label className="text-[10px] text-[var(--color-text-secondary)]">
+                  {t('colorGrading.lut')}
+                </label>
+                <div className="flex items-center gap-1">
+                  <label className="cursor-pointer rounded bg-white/10 px-2 py-1 text-[10px] text-[var(--color-text)] hover:bg-white/20">
+                    {t('colorGrading.uploadLut')}
+                    <input
+                      type="file"
+                      accept=".cube"
+                      onChange={handleLutUpload}
+                      className="hidden"
+                    />
+                  </label>
+                  {clipFilters.colorGrading.lut && (
+                    <>
+                      <span className="flex-1 truncate text-[9px] text-[var(--color-text-secondary)]">
+                        {clipFilters.colorGrading.lut.name}
+                      </span>
+                      <button
+                        onClick={() => handleColorGradingUpdate({ ...clipFilters.colorGrading!, lut: null })}
+                        className="text-[9px] text-red-400 hover:text-red-300"
+                      >
+                        {t('colorGrading.clearLut')}
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
             </>
           )}
         </div>

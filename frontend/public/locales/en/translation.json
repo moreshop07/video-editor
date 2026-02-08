@@ -273,6 +273,24 @@
     "zoomOut": "Zoom Out",
     "duration": "Duration"
   },
+  "colorGrading": {
+    "title": "Color Grading",
+    "preset": "Preset",
+    "none": "None",
+    "cinematic": "Cinematic",
+    "vintage": "Vintage",
+    "coolTone": "Cool Tone",
+    "highContrast": "High Contrast",
+    "warmGlow": "Warm Glow",
+    "temperature": "Temperature",
+    "tint": "Tint",
+    "shadows": "Shadows",
+    "highlights": "Highlights",
+    "gamma": "Gamma",
+    "lut": "LUT File",
+    "uploadLut": "Upload .cube",
+    "clearLut": "Clear"
+  },
   "chromaKey": {
     "title": "Chroma Key",
     "keyColor": "Key Color",
