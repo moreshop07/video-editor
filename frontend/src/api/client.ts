@@ -192,4 +192,17 @@ export const autoEditApi = {
     }),
 };
 
+// ---- AI Video API ----
+export const aiVideoApi = {
+  generate: (data: {
+    task_type: string;
+    prompt: string;
+    image_url?: string;
+    resolution?: string;
+    duration?: number;
+    aspect_ratio?: string;
+    project_id?: number;
+  }) => apiClient.post('/ai-video/generate', data),
+};
+
 export default apiClient;

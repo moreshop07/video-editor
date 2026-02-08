@@ -388,6 +388,23 @@
     "easeOut": "漸出",
     "easeInOut": "漸入漸出"
   },
+  "aiVideo": {
+    "title": "AI 影片",
+    "textToVideo": "文字生成影片",
+    "imageToVideo": "圖片生成影片",
+    "prompt": "提示詞",
+    "promptPlaceholder": "描述你想生成的影片...",
+    "selectImage": "選擇圖片",
+    "resolution": "解析度",
+    "duration": "時長",
+    "aspectRatio": "寬高比",
+    "generate": "生成影片",
+    "generating": "生成中...",
+    "completed": "影片生成完成！",
+    "failed": "生成失敗",
+    "seconds": "秒",
+    "noApiKey": "PiAPI 金鑰未設定"
+  },
   "audioMixing": {
     "title": "音訊混音",
     "trackVolume": "軌道音量",

@@ -35,6 +35,7 @@ from app.models.subtitle import SubtitleSegment, SubtitleTrack
 from app.models.tts import TTSTrack
 from app.services import ai as ai_service
 from app.services import ffmpeg as ffmpeg_service
+from app.services import piapi as piapi_service
 from app.workers.celery_app import celery_app
 
 logger = logging.getLogger(__name__)
@@ -1506,6 +1507,144 @@ def generate_voiceover(self, job_id: int) -> dict:
     except Exception as exc:
         session.rollback()
         logger.exception("generate_voiceover failed for job %s", job_id)
+        try:
+            if job:
+                _update_job_status(
+                    session, job, JobStatus.FAILED.value,
+                    error_message=str(exc)[:2000],
+                )
+        except Exception:
+            logger.exception("Failed to update job status to FAILED")
+        raise self.retry(exc=exc, countdown=60)
+    finally:
+        session.close()
+
+
+# =========================================================================
+# Task: generate_ai_video
+# =========================================================================
+
+@celery_app.task(name="app.workers.tasks.generate_ai_video", bind=True, max_retries=1)
+def generate_ai_video(self, job_id: int) -> dict:
+    """Generate an AI video via PiAPI (WAN PRO), download the result,
+    upload to MinIO, and create an Asset record.
+    """
+    import httpx as _httpx
+
+    session = get_sync_session()
+    try:
+        job: ProcessingJob | None = session.get(ProcessingJob, job_id)
+        if job is None:
+            raise ValueError(f"Job {job_id} not found")
+
+        _update_job_status(session, job, JobStatus.PROCESSING.value, progress=0.0)
+
+        input_params = job.input_params or {}
+        task_type = input_params.get("task_type", "wan26-txt2video")
+        prompt = input_params.get("prompt", "")
+
+        if not prompt:
+            raise ValueError("No prompt specified in input_params")
+
+        # Build PiAPI input payload
+        piapi_input: dict = {"prompt": prompt}
+        if input_params.get("image_url"):
+            piapi_input["image"] = input_params["image_url"]
+        if input_params.get("resolution"):
+            piapi_input["resolution"] = input_params["resolution"]
+        if input_params.get("duration"):
+            piapi_input["duration"] = input_params["duration"]
+        if input_params.get("aspect_ratio"):
+            piapi_input["aspect_ratio"] = input_params["aspect_ratio"]
+
+        _publish_progress(job_id, 5.0, detail="Creating AI video task...")
+
+        # 1. Create PiAPI task
+        piapi_task_id = piapi_service.create_task(task_type, piapi_input)
+
+        _publish_progress(job_id, 10.0, detail="Generating video...")
+
+        # 2. Poll until complete
+        def _on_progress(pct: float) -> None:
+            # Map PiAPI progress (0-100) to our progress range (10-70)
+            mapped = 10.0 + (pct / 100.0) * 60.0
+            _publish_progress(job_id, min(70.0, mapped), detail="Generating video...")
+
+        result_data = piapi_service.poll_task(
+            piapi_task_id, timeout=600, interval=10, progress_callback=_on_progress,
+        )
+
+        _publish_progress(job_id, 75.0, detail="Downloading generated video...")
+
+        # 3. Extract video URL and download
+        video_url = piapi_service.get_video_url(result_data)
+
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
+        tmp.close()
+
+        try:
+            with _httpx.Client(timeout=120, follow_redirects=True) as client:
+                with client.stream("GET", video_url) as resp:
+                    resp.raise_for_status()
+                    with open(tmp.name, "wb") as f:
+                        for chunk in resp.iter_bytes(chunk_size=65536):
+                            f.write(chunk)
+
+            file_size = os.path.getsize(tmp.name)
+
+            _publish_progress(job_id, 85.0, detail="Uploading to storage...")
+
+            # 4. Upload to MinIO
+            filename = f"ai_video_{job_id}.mp4"
+            object_name = f"ai_video/{job.user_id}/{job_id}/{filename}"
+            with open(tmp.name, "rb") as f:
+                upload_file(
+                    settings.MINIO_BUCKET_ASSETS,
+                    object_name,
+                    f.read(),
+                    content_type="video/mp4",
+                )
+
+            file_path_minio = f"/{settings.MINIO_BUCKET_ASSETS}/{object_name}"
+
+            _publish_progress(job_id, 92.0, detail="Creating asset record...")
+
+            # 5. Create Asset record
+            asset = Asset(
+                user_id=job.user_id,
+                filename=filename,
+                original_filename=f"AI Video - {prompt[:60]}",
+                file_path=file_path_minio,
+                file_size=file_size,
+                mime_type="video/mp4",
+                asset_type=AssetType.VIDEO.value,
+            )
+            session.add(asset)
+            session.flush()
+
+            _update_job_status(
+                session, job, JobStatus.COMPLETED.value,
+                progress=100.0,
+                result={
+                    "asset_id": asset.id,
+                    "task_type": task_type,
+                    "piapi_task_id": piapi_task_id,
+                    "prompt": prompt,
+                },
+            )
+
+            # 6. Trigger metadata extraction
+            process_asset_metadata.delay(asset.id)
+
+            return {"job_id": job_id, "asset_id": asset.id}
+
+        finally:
+            if os.path.exists(tmp.name):
+                os.unlink(tmp.name)
+
+    except Exception as exc:
+        session.rollback()
+        logger.exception("generate_ai_video failed for job %s", job_id)
         try:
             if job:
                 _update_job_status(

@@ -10,6 +10,7 @@ import { TextLibrary } from "@/components/text/TextLibrary";
 import VideoDownloadPanel from "@/components/download/VideoDownloadPanel";
 import VideoAnalyzerPanel from "@/components/analysis/VideoAnalyzerPanel";
 import AutoEditPanel from "@/components/autoedit/AutoEditPanel";
+import AIVideoPanel from "@/components/ai/AIVideoPanel";
 
 type SidebarTab =
   | "assets"
@@ -21,7 +22,8 @@ type SidebarTab =
   | "text"
   | "download"
   | "analyzer"
-  | "autoEdit";
+  | "autoEdit"
+  | "aiVideo";
 
 interface TabConfig {
   key: SidebarTab;
@@ -40,6 +42,7 @@ const tabs: TabConfig[] = [
   { key: "download", labelKey: "download.title", icon: "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" },
   { key: "analyzer", labelKey: "analyzer.title", icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" },
   { key: "autoEdit", labelKey: "autoEdit.title", icon: "M14.121 14.121L19 19m-7-7l7-7m-7 7l-2.879 2.879M12 12L9.121 9.121m0 5.758a3 3 0 10-4.243 4.243 3 3 0 004.243-4.243zm0-5.758a3 3 0 10-4.243-4.243 3 3 0 004.243 4.243z" },
+  { key: "aiVideo", labelKey: "aiVideo.title", icon: "M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" },
 ];
 
 function SidebarComponent() {
@@ -68,6 +71,8 @@ function SidebarComponent() {
         return <VideoAnalyzerPanel />;
       case "autoEdit":
         return <AutoEditPanel />;
+      case "aiVideo":
+        return <AIVideoPanel />;
       default:
         return null;
     }

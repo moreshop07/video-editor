@@ -388,6 +388,23 @@
     "easeOut": "Ease Out",
     "easeInOut": "Ease In-Out"
   },
+  "aiVideo": {
+    "title": "AI Video",
+    "textToVideo": "Text to Video",
+    "imageToVideo": "Image to Video",
+    "prompt": "Prompt",
+    "promptPlaceholder": "Describe the video you want to generate...",
+    "selectImage": "Select Image",
+    "resolution": "Resolution",
+    "duration": "Duration",
+    "aspectRatio": "Aspect Ratio",
+    "generate": "Generate Video",
+    "generating": "Generating...",
+    "completed": "Video generated!",
+    "failed": "Generation failed",
+    "seconds": "seconds",
+    "noApiKey": "PiAPI key not configured"
+  },
   "audioMixing": {
     "title": "Audio Mixing",
     "trackVolume": "Track Volume",

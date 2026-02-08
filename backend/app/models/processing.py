@@ -28,6 +28,7 @@ class JobType(str, enum.Enum):
     GENERATE_TTS = "generate_tts"
     AUTO_EDIT = "auto_edit"
     GENERATE_VOICEOVER = "generate_voiceover"
+    AI_VIDEO = "ai_video"
 
 
 class JobStatus(str, enum.Enum):

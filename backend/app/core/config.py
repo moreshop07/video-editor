@@ -52,6 +52,9 @@ class Settings(BaseSettings):
     PIXABAY_API_KEY: Optional[str] = None
     FREESOUND_API_KEY: Optional[str] = None
 
+    # --- PiAPI (AI video generation) ----------------------------------------
+    PIAPI_API_KEY: Optional[str] = None
+
     model_config = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",
