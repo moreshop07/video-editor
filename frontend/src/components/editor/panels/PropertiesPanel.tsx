@@ -22,10 +22,11 @@ import AudioProcessingPanel from '@/components/audio/AudioProcessingPanel';
 import { TransitionPicker } from '@/components/editor/timeline/TransitionPicker';
 import { KeyframeEditor } from './KeyframeEditor';
 import { SpeedRampEditor } from './SpeedRampEditor';
+import { BLEND_MODES, BACKGROUND_PRESETS } from '@/effects/blendModeDefinitions';
 
 function PropertiesPanelComponent() {
   const { t } = useTranslation();
-  const { tracks, selectedClipIds, updateClip, setClipTransition, updateTrackAudio, setClipKeyframe, removeClipKeyframe, removeSelectedClips, updateSelectedClips } = useTimelineStore();
+  const { tracks, selectedClipIds, updateClip, setClipTransition, updateTrackAudio, setClipKeyframe, removeClipKeyframe, removeSelectedClips, updateSelectedClips, canvasBackground, setCanvasBackground } = useTimelineStore();
 
   const selectedClipId = selectedClipIds[0] ?? null;
 
@@ -92,6 +93,17 @@ function PropertiesPanelComponent() {
       const filters: ClipFilters = selectedData.clip.filters ?? DEFAULT_CLIP_FILTERS;
       updateClip(selectedData.track.id, selectedData.clip.id, {
         filters: { ...filters, chromaKey },
+      });
+    },
+    [selectedData, updateClip],
+  );
+
+  const handleBlendModeChange = useCallback(
+    (blendMode: string) => {
+      if (!selectedData) return;
+      const filters: ClipFilters = selectedData.clip.filters ?? DEFAULT_CLIP_FILTERS;
+      updateClip(selectedData.track.id, selectedData.clip.id, {
+        filters: { ...filters, blendMode: blendMode === 'source-over' ? undefined : blendMode },
       });
     },
     [selectedData, updateClip],
@@ -171,8 +183,32 @@ function PropertiesPanelComponent() {
 
   if (!selectedData) {
     return (
-      <div className="flex h-full items-center justify-center p-4">
-        <p className="text-center text-xs text-[var(--color-text-secondary)]">
+      <div className="flex flex-col gap-4 p-4">
+        <h3 className="text-xs font-semibold text-[var(--color-text)]">
+          {t('background.title')}
+        </h3>
+        <div className="flex items-center gap-2">
+          <label className="text-[10px] text-[var(--color-text-secondary)]">{t('background.color')}</label>
+          <input
+            type="color"
+            value={canvasBackground}
+            onChange={(e) => setCanvasBackground(e.target.value)}
+            className="w-8 h-8 rounded cursor-pointer border border-[var(--color-border)]"
+          />
+          <span className="text-[10px] text-[var(--color-text-secondary)] font-mono">{canvasBackground}</span>
+        </div>
+        <div className="flex gap-1 flex-wrap">
+          {BACKGROUND_PRESETS.map((preset) => (
+            <button
+              key={preset.color}
+              onClick={() => setCanvasBackground(preset.color)}
+              className={`w-6 h-6 rounded border ${canvasBackground === preset.color ? 'border-white ring-1 ring-white' : 'border-[var(--color-border)]'}`}
+              style={{ background: preset.color }}
+              title={t(preset.labelKey)}
+            />
+          ))}
+        </div>
+        <p className="text-center text-[10px] text-[var(--color-text-secondary)] mt-2">
           {t('properties.selectClip')}
         </p>
       </div>
@@ -234,6 +270,24 @@ function PropertiesPanelComponent() {
         staticSpeed={clipFilters.speed}
         keyframeTracks={clip.keyframes}
       />
+
+      {/* Blend Mode */}
+      {isVideoType && (
+        <div className="flex flex-col gap-1">
+          <div className="text-[10px] font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">
+            {t('blendMode.title')}
+          </div>
+          <select
+            value={clipFilters.blendMode || 'source-over'}
+            onChange={(e) => handleBlendModeChange(e.target.value)}
+            className="w-full bg-[var(--color-bg)] text-[var(--color-text)] border border-[var(--color-border)] rounded px-2 py-1 text-xs"
+          >
+            {BLEND_MODES.map((bm) => (
+              <option key={bm.id} value={bm.id}>{t(bm.labelKey)}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Video/Sticker specific */}
       {isVideoType && (

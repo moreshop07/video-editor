@@ -72,6 +72,7 @@ export interface CompositeLayer {
   frame: CanvasImageSource;
   opacity: number;
   filter?: string;
+  blendMode?: string;
   transform?: {
     x: number;
     y: number;

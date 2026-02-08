@@ -859,5 +859,33 @@
     "prevMarker": "上一個標記",
     "save": "儲存專案",
     "showShortcuts": "顯示快捷鍵"
+  },
+  "blendMode": {
+    "title": "混合模式",
+    "normal": "正常",
+    "multiply": "正片疊底",
+    "screen": "濾色",
+    "overlay": "覆蓋",
+    "darken": "變暗",
+    "lighten": "變亮",
+    "colorDodge": "顏色減淡",
+    "colorBurn": "顏色加深",
+    "hardLight": "強光",
+    "softLight": "柔光",
+    "difference": "差異",
+    "exclusion": "排除",
+    "hue": "色相",
+    "saturation": "飽和度",
+    "color": "顏色",
+    "luminosity": "明度"
+  },
+  "background": {
+    "title": "畫布背景",
+    "color": "顏色",
+    "black": "黑色",
+    "white": "白色",
+    "gray": "深灰色",
+    "green": "綠幕",
+    "blue": "藍色"
   }
 }

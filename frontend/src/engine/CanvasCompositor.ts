@@ -4,6 +4,7 @@ export class CanvasCompositor {
   private ctx: CanvasRenderingContext2D;
   private width: number;
   private height: number;
+  private backgroundColor: string = '#000';
 
   constructor(canvas: HTMLCanvasElement, width: number, height: number) {
     const ctx = canvas.getContext('2d');
@@ -18,8 +19,12 @@ export class CanvasCompositor {
     this.height = height;
   }
 
+  setBackgroundColor(color: string): void {
+    this.backgroundColor = color;
+  }
+
   clear(): void {
-    this.ctx.fillStyle = '#000';
+    this.ctx.fillStyle = this.backgroundColor;
     this.ctx.fillRect(0, 0, this.width, this.height);
   }
 
@@ -32,6 +37,7 @@ export class CanvasCompositor {
     for (const layer of layers) {
       this.ctx.globalAlpha = layer.opacity;
       this.ctx.filter = layer.filter || 'none';
+      this.ctx.globalCompositeOperation = (layer.blendMode as GlobalCompositeOperation) || 'source-over';
 
       if (layer.transform) {
         const { x, y, width, height, rotation, border } = layer.transform;
@@ -114,6 +120,7 @@ export class CanvasCompositor {
 
     this.ctx.globalAlpha = 1;
     this.ctx.filter = 'none';
+    this.ctx.globalCompositeOperation = 'source-over';
   }
 
   renderSubtitle(overlay: SubtitleOverlay): void {

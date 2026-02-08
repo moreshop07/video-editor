@@ -34,6 +34,7 @@ export default function VideoPreview() {
   const setCurrentTime = useTimelineStore((s) => s.setCurrentTime);
   const play = useTimelineStore((s) => s.play);
   const pause = useTimelineStore((s) => s.pause);
+  const canvasBackground = useTimelineStore((s) => s.canvasBackground);
 
   // Resize canvas to fit container maintaining 16:9
   useEffect(() => {
@@ -86,6 +87,13 @@ export default function VideoPreview() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Sync canvas background color to engine
+  useEffect(() => {
+    if (engineRef.current) {
+      engineRef.current.setBackgroundColor(canvasBackground);
+    }
+  }, [canvasBackground]);
 
   // Subscribe to subtitle segments for canvas overlay
   const subtitleTracks = useSubtitleStore((s) => s.tracks);

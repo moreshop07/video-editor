@@ -224,6 +224,7 @@ export interface ProjectData {
     zoom: number;
     scrollX: number;
     snapEnabled: boolean;
+    canvasBackground?: string;
   };
 }
 
@@ -233,6 +234,7 @@ export function serializeForSave(state: {
   zoom: number;
   scrollX: number;
   snapEnabled: boolean;
+  canvasBackground: string;
 }): ProjectData {
   return {
     version: 1,
@@ -298,6 +300,7 @@ export function serializeForSave(state: {
       zoom: state.zoom,
       scrollX: state.scrollX,
       snapEnabled: state.snapEnabled,
+      canvasBackground: state.canvasBackground,
     },
   };
 }
@@ -314,6 +317,10 @@ interface TimelineState {
   snapEnabled: boolean;
   snapLine: number | null;
   markers: Marker[];
+  canvasBackground: string;
+
+  // Canvas background
+  setCanvasBackground: (color: string) => void;
 
   // Marker operations
   addMarker: (marker: Omit<Marker, 'id'> & { id?: string }) => void;
@@ -422,6 +429,9 @@ export const useTimelineStore = create<TimelineState>()(
       snapEnabled: true,
       snapLine: null,
       markers: [],
+      canvasBackground: '#000000',
+
+      setCanvasBackground: (color) => set({ canvasBackground: color }),
 
       addMarker: (marker) => {
         const newMarker: Marker = {
@@ -989,6 +999,7 @@ export const useTimelineStore = create<TimelineState>()(
           zoom: data.timeline.zoom ?? 1,
           scrollX: data.timeline.scrollX ?? 0,
           snapEnabled: data.timeline.snapEnabled ?? true,
+          canvasBackground: data.timeline.canvasBackground ?? '#000000',
           currentTime: 0,
           isPlaying: false,
           selectedClipIds: [],
@@ -1011,6 +1022,7 @@ export const useTimelineStore = create<TimelineState>()(
         zoom: state.zoom,
         scrollX: state.scrollX,
         snapEnabled: state.snapEnabled,
+        canvasBackground: state.canvasBackground,
         // Excluded from history:
         // - currentTime (playback position)
         // - isPlaying (playback state)

@@ -51,6 +51,7 @@ export interface ClipFilters {
   speed: number; // 0.25 - 4.0, default 1.0
   chromaKey?: ChromaKeySettings;
   colorGrading?: ColorGradingSettings;
+  blendMode?: string; // globalCompositeOperation value, default 'source-over'
 }
 
 export const DEFAULT_CLIP_FILTERS: ClipFilters = {

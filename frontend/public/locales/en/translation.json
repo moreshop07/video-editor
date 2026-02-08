@@ -859,5 +859,33 @@
     "prevMarker": "Previous Marker",
     "save": "Save Project",
     "showShortcuts": "Show Shortcuts"
+  },
+  "blendMode": {
+    "title": "Blend Mode",
+    "normal": "Normal",
+    "multiply": "Multiply",
+    "screen": "Screen",
+    "overlay": "Overlay",
+    "darken": "Darken",
+    "lighten": "Lighten",
+    "colorDodge": "Color Dodge",
+    "colorBurn": "Color Burn",
+    "hardLight": "Hard Light",
+    "softLight": "Soft Light",
+    "difference": "Difference",
+    "exclusion": "Exclusion",
+    "hue": "Hue",
+    "saturation": "Saturation",
+    "color": "Color",
+    "luminosity": "Luminosity"
+  },
+  "background": {
+    "title": "Canvas Background",
+    "color": "Color",
+    "black": "Black",
+    "white": "White",
+    "gray": "Dark Gray",
+    "green": "Green Screen",
+    "blue": "Blue"
   }
 }

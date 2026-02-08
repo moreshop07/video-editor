@@ -779,6 +779,7 @@ export class CompositorEngine {
         frame,
         opacity,
         filter,
+        blendMode: clip.filters?.blendMode,
         transform,
       };
     } catch {
@@ -792,6 +793,10 @@ export class CompositorEngine {
 
   getDuckingProcessor(): DuckingProcessor {
     return this.duckingProcessor;
+  }
+
+  setBackgroundColor(color: string): void {
+    this.compositor.setBackgroundColor(color);
   }
 
   setMasterVolume(volume: number): void {
