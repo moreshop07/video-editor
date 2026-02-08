@@ -3,14 +3,14 @@ import { useTranslation } from "react-i18next";
 import { useTimelineStore } from "@/store/timelineStore";
 import { useSubtitleStore } from "@/store/subtitleStore";
 import { ExportEngine, getVideoBitrate } from "@/engine/ExportEngine";
-import type { ExportProgress } from "@/engine/ExportEngine";
+import type { ExportProgress, ExportFormat } from "@/engine/ExportEngine";
 import type { RenderableTrack } from "@/engine/types";
 
 type ExportQuality = "low" | "medium" | "high" | "custom";
 type ExportStatus = "idle" | "exporting" | "completed" | "failed";
 
 interface ExportSettings {
-  format: string;
+  format: ExportFormat;
   quality: ExportQuality;
   resolution: { width: number; height: number };
   fps: number;
@@ -23,6 +23,20 @@ const resolutionPresets = [
   { label: "480p", width: 854, height: 480 },
   { label: "4K", width: 3840, height: 2160 },
 ];
+
+const FORMAT_OPTIONS: { key: ExportFormat; labelKey: string }[] = [
+  { key: "mp4", labelKey: "export.formatMp4" },
+  { key: "webm", labelKey: "export.formatWebm" },
+  { key: "gif", labelKey: "export.formatGif" },
+  { key: "wav", labelKey: "export.formatWav" },
+];
+
+const FORMAT_EXTENSIONS: Record<ExportFormat, string> = {
+  mp4: ".mp4",
+  webm: ".webm",
+  gif: ".gif",
+  wav: ".wav",
+};
 
 interface ExportDialogProps {
   open: boolean;
@@ -57,6 +71,9 @@ export default function ExportDialog({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [fileSize, setFileSize] = useState<string | null>(null);
   const exportEngineRef = useRef<ExportEngine | null>(null);
+
+  const isWav = settings.format === "wav";
+  const isGif = settings.format === "gif";
 
   useEffect(() => {
     if (onProgress) {
@@ -98,6 +115,10 @@ export default function ExportDialog({
     },
     [],
   );
+
+  const handleFormatChange = useCallback((format: ExportFormat) => {
+    setSettings((prev) => ({ ...prev, format }));
+  }, []);
 
   // Build renderable tracks from timeline store
   const buildRenderableTracks = useCallback((): RenderableTrack[] => {
@@ -143,7 +164,9 @@ export default function ExportDialog({
   }, [tracks]);
 
   const handleExport = useCallback(async () => {
-    if (!ExportEngine.isSupported()) {
+    // GIF and WAV don't need WebCodecs; MP4 and WebM do
+    const needsWebCodecs = settings.format === "mp4" || settings.format === "webm";
+    if (needsWebCodecs && !ExportEngine.isSupported()) {
       setStatus("failed");
       setErrorMessage(t("export.unsupported"));
       return;
@@ -187,14 +210,16 @@ export default function ExportDialog({
 
       const { width, height } = settings.resolution;
       const bitrate = getVideoBitrate(settings.quality, width, height);
+      const fps = settings.format === "gif" ? Math.min(settings.fps, 10) : settings.fps;
 
       const blob = await engine.export(
         {
           width,
           height,
-          fps: settings.fps,
+          fps,
           videoBitrate: bitrate,
           includeSubtitles: settings.includeSubtitles,
+          format: settings.format,
         },
         renderableTracks,
         subtitleSegments,
@@ -243,20 +268,23 @@ export default function ExportDialog({
 
   const handleDownload = useCallback(() => {
     if (!downloadUrl) return;
+    const ext = FORMAT_EXTENSIONS[settings.format] || ".mp4";
     const a = document.createElement("a");
     a.href = downloadUrl;
-    a.download = `export_${Date.now()}.mp4`;
+    a.download = `export_${Date.now()}${ext}`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-  }, [downloadUrl]);
+  }, [downloadUrl, settings.format]);
 
   if (!open) return null;
 
   const isExporting = status === "exporting";
   const isCompleted = status === "completed";
   const isFailed = status === "failed";
+  const needsWebCodecs = settings.format === "mp4" || settings.format === "webm";
   const webCodecsSupported = ExportEngine.isSupported();
+  const canExport = needsWebCodecs ? webCodecsSupported : true;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
@@ -289,42 +317,26 @@ export default function ExportDialog({
 
         {/* Body */}
         <div className="flex flex-col gap-4 p-4">
-          {/* WebCodecs not supported warning */}
-          {!webCodecsSupported && (
+          {/* WebCodecs not supported warning (only for MP4/WebM) */}
+          {needsWebCodecs && !webCodecsSupported && (
             <div className="rounded bg-yellow-500/10 px-3 py-2 text-xs text-yellow-400">
               {t("export.unsupported")}
             </div>
           )}
 
-          {/* Format */}
+          {/* Format selector */}
           <div className="flex flex-col gap-1">
             <label className="text-xs text-[var(--text-secondary)]">
               {t("format")}
             </label>
-            <div className="rounded border border-white/10 bg-[var(--bg-primary)] px-3 py-1.5 text-xs text-[var(--text-primary)]">
-              MP4 (H.264)
-            </div>
-          </div>
-
-          {/* Quality */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-[var(--text-secondary)]">
-              {t("quality")}
-            </label>
             <div className="flex gap-1">
-              {(
-                [
-                  { key: "low", labelKey: "qualityLow" },
-                  { key: "medium", labelKey: "qualityMedium" },
-                  { key: "high", labelKey: "qualityHigh" },
-                ] as const
-              ).map(({ key, labelKey }) => (
+              {FORMAT_OPTIONS.map(({ key, labelKey }) => (
                 <button
                   key={key}
-                  onClick={() => handleQualityChange(key)}
+                  onClick={() => handleFormatChange(key)}
                   disabled={isExporting}
                   className={`flex-1 rounded px-2 py-1 text-[10px] ${
-                    settings.quality === key
+                    settings.format === key
                       ? "bg-[var(--accent)] text-white"
                       : "bg-white/5 text-[var(--text-secondary)] hover:bg-white/10"
                   }`}
@@ -335,73 +347,124 @@ export default function ExportDialog({
             </div>
           </div>
 
-          {/* Resolution */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-[var(--text-secondary)]">
-              {t("resolution")}
-            </label>
-            <div className="flex flex-wrap gap-1">
-              {resolutionPresets.map((preset) => (
-                <button
-                  key={preset.label}
-                  onClick={() =>
-                    handleResolutionChange(preset.width, preset.height)
-                  }
-                  disabled={isExporting}
-                  className={`rounded px-2 py-1 text-[10px] ${
-                    settings.resolution.width === preset.width &&
-                    settings.resolution.height === preset.height
-                      ? "bg-[var(--accent)] text-white"
-                      : "bg-white/5 text-[var(--text-secondary)] hover:bg-white/10"
-                  }`}
-                >
-                  {preset.label}
-                </button>
-              ))}
+          {/* GIF note */}
+          {isGif && (
+            <div className="rounded bg-blue-500/10 px-3 py-2 text-[10px] text-blue-400">
+              {t("export.gifNote")}
             </div>
-          </div>
+          )}
 
-          {/* FPS */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-[var(--text-secondary)]">
-              {t("export.fps")}
-            </label>
-            <div className="flex gap-1">
-              {[24, 30, 60].map((fps) => (
-                <button
-                  key={fps}
-                  onClick={() =>
-                    setSettings((prev) => ({ ...prev, fps }))
-                  }
-                  disabled={isExporting}
-                  className={`flex-1 rounded px-2 py-1 text-[10px] ${
-                    settings.fps === fps
-                      ? "bg-[var(--accent)] text-white"
-                      : "bg-white/5 text-[var(--text-secondary)] hover:bg-white/10"
-                  }`}
-                >
-                  {fps} fps
-                </button>
-              ))}
+          {/* WAV note */}
+          {isWav && (
+            <div className="rounded bg-blue-500/10 px-3 py-2 text-[10px] text-blue-400">
+              {t("export.wavNote")}
             </div>
-          </div>
+          )}
 
-          {/* Include subtitles */}
-          <label className="flex items-center gap-2 text-xs text-[var(--text-primary)]">
-            <input
-              type="checkbox"
-              checked={settings.includeSubtitles}
-              onChange={(e) =>
-                setSettings((prev) => ({
-                  ...prev,
-                  includeSubtitles: e.target.checked,
-                }))
-              }
-              disabled={isExporting}
-              className="accent-[var(--accent)]"
-            />
-            {t("includeSubtitles")}
-          </label>
+          {/* Quality — hidden for GIF and WAV */}
+          {!isGif && !isWav && (
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-[var(--text-secondary)]">
+                {t("quality")}
+              </label>
+              <div className="flex gap-1">
+                {(
+                  [
+                    { key: "low", labelKey: "qualityLow" },
+                    { key: "medium", labelKey: "qualityMedium" },
+                    { key: "high", labelKey: "qualityHigh" },
+                  ] as const
+                ).map(({ key, labelKey }) => (
+                  <button
+                    key={key}
+                    onClick={() => handleQualityChange(key)}
+                    disabled={isExporting}
+                    className={`flex-1 rounded px-2 py-1 text-[10px] ${
+                      settings.quality === key
+                        ? "bg-[var(--accent)] text-white"
+                        : "bg-white/5 text-[var(--text-secondary)] hover:bg-white/10"
+                    }`}
+                  >
+                    {t(labelKey)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Resolution — hidden for WAV */}
+          {!isWav && (
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-[var(--text-secondary)]">
+                {t("resolution")}
+              </label>
+              <div className="flex flex-wrap gap-1">
+                {resolutionPresets.map((preset) => (
+                  <button
+                    key={preset.label}
+                    onClick={() =>
+                      handleResolutionChange(preset.width, preset.height)
+                    }
+                    disabled={isExporting}
+                    className={`rounded px-2 py-1 text-[10px] ${
+                      settings.resolution.width === preset.width &&
+                      settings.resolution.height === preset.height
+                        ? "bg-[var(--accent)] text-white"
+                        : "bg-white/5 text-[var(--text-secondary)] hover:bg-white/10"
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* FPS — hidden for WAV, show capped value for GIF */}
+          {!isWav && (
+            <div className="flex flex-col gap-1">
+              <label className="text-xs text-[var(--text-secondary)]">
+                {t("export.fps")}
+              </label>
+              <div className="flex gap-1">
+                {(isGif ? [10] : [24, 30, 60]).map((fps) => (
+                  <button
+                    key={fps}
+                    onClick={() =>
+                      setSettings((prev) => ({ ...prev, fps }))
+                    }
+                    disabled={isExporting || isGif}
+                    className={`flex-1 rounded px-2 py-1 text-[10px] ${
+                      (isGif ? true : settings.fps === fps)
+                        ? "bg-[var(--accent)] text-white"
+                        : "bg-white/5 text-[var(--text-secondary)] hover:bg-white/10"
+                    }`}
+                  >
+                    {fps} fps
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Include subtitles — hidden for WAV */}
+          {!isWav && (
+            <label className="flex items-center gap-2 text-xs text-[var(--text-primary)]">
+              <input
+                type="checkbox"
+                checked={settings.includeSubtitles}
+                onChange={(e) =>
+                  setSettings((prev) => ({
+                    ...prev,
+                    includeSubtitles: e.target.checked,
+                  }))
+                }
+                disabled={isExporting}
+                className="accent-[var(--accent)]"
+              />
+              {t("includeSubtitles")}
+            </label>
+          )}
 
           {/* Export progress */}
           {(isExporting || isCompleted) && (
@@ -469,7 +532,7 @@ export default function ExportDialog({
           {!isCompleted && !isExporting && (
             <button
               onClick={handleExport}
-              disabled={!webCodecsSupported}
+              disabled={!canExport}
               className="rounded bg-[var(--accent)] px-4 py-1.5 text-xs font-medium text-white hover:bg-[var(--accent)]/80 disabled:opacity-50"
             >
               {t("startExport")}

@@ -111,7 +111,13 @@
     "fps": "影格率",
     "unsupported": "您的瀏覽器不支援 WebCodecs 影片編碼。請使用 Chrome 94+ 或 Edge 94+。",
     "emptyTimeline": "時間軸為空，請先加入媒體再匯出。",
-    "close": "關閉"
+    "close": "關閉",
+    "formatMp4": "MP4 (H.264)",
+    "formatWebm": "WebM (VP9)",
+    "formatGif": "GIF",
+    "formatWav": "WAV（純音訊）",
+    "gifNote": "GIF 以 10 fps 匯出以縮小檔案大小",
+    "wavNote": "僅匯出音訊，不含影片"
   },
   "preview": {
     "noContent": "將媒體加入時間軸以預覽"

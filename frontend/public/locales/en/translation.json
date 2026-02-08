@@ -111,7 +111,13 @@
     "fps": "Frame Rate",
     "unsupported": "Your browser does not support WebCodecs video encoding. Please use Chrome 94+ or Edge 94+.",
     "emptyTimeline": "Timeline is empty. Add media before exporting.",
-    "close": "Close"
+    "close": "Close",
+    "formatMp4": "MP4 (H.264)",
+    "formatWebm": "WebM (VP9)",
+    "formatGif": "GIF",
+    "formatWav": "WAV (Audio)",
+    "gifNote": "GIF exports at 10 fps for smaller file size",
+    "wavNote": "Audio-only export, no video"
   },
   "preview": {
     "noContent": "Add media to the timeline to preview"
