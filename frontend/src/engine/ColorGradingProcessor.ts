@@ -1,4 +1,5 @@
 import type { ColorGradingSettings } from '@/effects/types';
+import { buildCurveLUT, isIdentityCurve, isAllIdentity } from '@/effects/curveInterpolation';
 
 /**
  * Pixel-level color grading processor using OffscreenCanvas.
@@ -29,9 +30,22 @@ export class ColorGradingProcessor {
     const imageData = this.ctx.getImageData(0, 0, sourceWidth, sourceHeight);
     const data = imageData.data;
 
-    const { temperature, tint, shadows, highlights, gamma, lut } = settings;
+    const { temperature, tint, shadows, highlights, gamma, lut, curves } = settings;
     const hasBasicGrading = temperature !== 0 || tint !== 0 || shadows !== 0 || highlights !== 0 || gamma !== 1.0;
     const hasLut = lut !== null && lut.data.length > 0;
+
+    // Precompute curve LUTs
+    const hasCurves = curves != null && !isAllIdentity(curves);
+    let curveMasterLut: Uint8Array | null = null;
+    let curveRedLut: Uint8Array | null = null;
+    let curveGreenLut: Uint8Array | null = null;
+    let curveBlueLut: Uint8Array | null = null;
+    if (hasCurves && curves) {
+      if (!isIdentityCurve(curves.red)) curveRedLut = buildCurveLUT(curves.red);
+      if (!isIdentityCurve(curves.green)) curveGreenLut = buildCurveLUT(curves.green);
+      if (!isIdentityCurve(curves.blue)) curveBlueLut = buildCurveLUT(curves.blue);
+      if (!isIdentityCurve(curves.master)) curveMasterLut = buildCurveLUT(curves.master);
+    }
 
     // Precompute gamma LUT for performance (256 entries)
     let gammaLut: Uint8Array | null = null;
@@ -90,6 +104,18 @@ export class ColorGradingProcessor {
           r = gammaLut[Math.round(r)];
           g = gammaLut[Math.round(g)];
           b = gammaLut[Math.round(b)];
+        }
+      }
+
+      // Apply tone curves (per-channel first, then master)
+      if (hasCurves) {
+        if (curveRedLut) r = curveRedLut[Math.round(r)];
+        if (curveGreenLut) g = curveGreenLut[Math.round(g)];
+        if (curveBlueLut) b = curveBlueLut[Math.round(b)];
+        if (curveMasterLut) {
+          r = curveMasterLut[Math.round(r)];
+          g = curveMasterLut[Math.round(g)];
+          b = curveMasterLut[Math.round(b)];
         }
       }
 

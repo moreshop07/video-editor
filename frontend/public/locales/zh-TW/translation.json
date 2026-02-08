@@ -906,5 +906,19 @@
     "gray": "深灰色",
     "green": "綠幕",
     "blue": "藍色"
+  },
+  "curves": {
+    "title": "曲線",
+    "master": "主通道",
+    "red": "紅色",
+    "green": "綠色",
+    "blue": "藍色",
+    "reset": "重置",
+    "preset": "曲線預設",
+    "sContrast": "S 對比",
+    "fadeBlack": "淡化黑色",
+    "crushBlack": "壓暗黑色",
+    "crossProcess": "交叉沖印",
+    "warmShadows": "暖色陰影"
   }
 }

@@ -26,6 +26,27 @@ export interface LUTData {
   data: number[];         // Flattened RGB float array [r,g,b, r,g,b, ...]
 }
 
+export interface CurvePoint {
+  x: number;  // 0-1 (input luminance)
+  y: number;  // 0-1 (output luminance)
+}
+
+export interface CurvesSettings {
+  master: CurvePoint[];
+  red: CurvePoint[];
+  green: CurvePoint[];
+  blue: CurvePoint[];
+}
+
+export const DEFAULT_CURVE_POINTS: CurvePoint[] = [{ x: 0, y: 0 }, { x: 1, y: 1 }];
+
+export const DEFAULT_CURVES: CurvesSettings = {
+  master: [{ x: 0, y: 0 }, { x: 1, y: 1 }],
+  red: [{ x: 0, y: 0 }, { x: 1, y: 1 }],
+  green: [{ x: 0, y: 0 }, { x: 1, y: 1 }],
+  blue: [{ x: 0, y: 0 }, { x: 1, y: 1 }],
+};
+
 export interface ColorGradingSettings {
   enabled: boolean;
   temperature: number;    // -1 to 1 (cool ↔ warm), default 0
@@ -34,6 +55,7 @@ export interface ColorGradingSettings {
   highlights: number;     // -1 to 1 (darken ↔ lighten highlights), default 0
   gamma: number;          // 0.2 to 3.0 (midtone adjustment), default 1.0
   lut: LUTData | null;    // Parsed LUT, null = no LUT
+  curves?: CurvesSettings; // Per-channel tone curves
 }
 
 export const DEFAULT_COLOR_GRADING: ColorGradingSettings = {

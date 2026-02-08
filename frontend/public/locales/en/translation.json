@@ -906,5 +906,19 @@
     "gray": "Dark Gray",
     "green": "Green Screen",
     "blue": "Blue"
+  },
+  "curves": {
+    "title": "Curves",
+    "master": "Master",
+    "red": "Red",
+    "green": "Green",
+    "blue": "Blue",
+    "reset": "Reset",
+    "preset": "Curve Preset",
+    "sContrast": "S-Contrast",
+    "fadeBlack": "Fade Black",
+    "crushBlack": "Crush Black",
+    "crossProcess": "Cross Process",
+    "warmShadows": "Warm Shadows"
   }
 }

@@ -23,6 +23,8 @@ import { TransitionPicker } from '@/components/editor/timeline/TransitionPicker'
 import { KeyframeEditor } from './KeyframeEditor';
 import { SpeedRampEditor } from './SpeedRampEditor';
 import { BLEND_MODES, BACKGROUND_PRESETS } from '@/effects/blendModeDefinitions';
+import { DEFAULT_CURVES } from '@/effects/types';
+import { CurvesPanel } from '@/components/color/CurvesPanel';
 import { SHAPE_DEFINITIONS } from '@/effects/shapeDefinitions';
 
 function PropertiesPanelComponent() {
@@ -1041,6 +1043,15 @@ function PropertiesPanelComponent() {
                 step={0.05}
                 onChange={(v) => handleColorGradingUpdate({ ...clipFilters.colorGrading!, gamma: v })}
                 format={(v) => v.toFixed(2)}
+              />
+
+              {/* Curves */}
+              <CurvesPanel
+                curves={clipFilters.colorGrading.curves ?? DEFAULT_CURVES}
+                onChange={(curves) => handleColorGradingUpdate({
+                  ...clipFilters.colorGrading!,
+                  curves,
+                })}
               />
 
               {/* LUT upload */}
