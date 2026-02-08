@@ -41,6 +41,18 @@ export interface TTSVoice {
   label: string;
 }
 
+export interface VoiceProfile {
+  id: number;
+  name: string;
+  description: string | null;
+  provider: 'edge_tts' | 'fish_audio';
+  provider_voice_id: string;
+  settings: Record<string, unknown> | null;
+  sample_audio_path: string | null;
+  is_default: boolean;
+  created_at: string;
+}
+
 interface AnalyzerState {
   // Analysis
   analyses: Record<number, VideoAnalysis>;
@@ -53,6 +65,12 @@ interface AnalyzerState {
   // TTS
   voices: TTSVoice[];
   ttsJobId: number | null;
+
+  // Voice Profiles
+  voiceProfiles: VoiceProfile[];
+  voiceProfilesLoading: boolean;
+  fishAudioAvailable: boolean;
+  previewAudioUrl: string | null;
 
   // Auto-edit
   autoEditJobId: number | null;
@@ -69,6 +87,31 @@ interface AnalyzerState {
   fetchVoices: () => Promise<void>;
   startTTS: (text: string, voice?: string, projectId?: number) => Promise<number>;
   startVoiceover: (trackId: number, projectId: number, voice?: string) => Promise<number>;
+  // Voice Profile actions
+  fetchVoiceProfiles: () => Promise<void>;
+  createVoiceProfile: (data: {
+    name: string;
+    description?: string;
+    provider: string;
+    provider_voice_id: string;
+    settings?: Record<string, unknown>;
+  }) => Promise<VoiceProfile>;
+  updateVoiceProfile: (id: number, data: {
+    name?: string;
+    description?: string;
+    settings?: Record<string, unknown>;
+    is_default?: boolean;
+  }) => Promise<void>;
+  deleteVoiceProfile: (id: number) => Promise<void>;
+  previewVoice: (text: string, profileId?: number, voice?: string) => Promise<void>;
+  clearPreviewAudio: () => void;
+  startVoiceoverMultiVoice: (
+    trackId: number,
+    projectId: number,
+    defaultProfileId?: number,
+    segmentVoices?: Record<number, number>,
+  ) => Promise<number>;
+
   startSilenceRemoval: (assetId: number, margin?: number, projectId?: number) => Promise<number>;
   startJumpCut: (assetId: number, projectId?: number) => Promise<number>;
   pollJob: (jobId: number) => Promise<Record<string, unknown>>;
@@ -119,6 +162,10 @@ export const useAnalyzerStore = create<AnalyzerState>((set, get) => ({
   downloadJobId: null,
   voices: [],
   ttsJobId: null,
+  voiceProfiles: [],
+  voiceProfilesLoading: false,
+  fishAudioAvailable: false,
+  previewAudioUrl: null,
   autoEditJobId: null,
   smartEditJobId: null,
   smartEditResult: null,
@@ -165,6 +212,70 @@ export const useAnalyzerStore = create<AnalyzerState>((set, get) => ({
 
   startVoiceover: async (trackId, projectId, voice) => {
     const { data } = await ttsApi.voiceover(trackId, projectId, voice);
+    set({ ttsJobId: data.id });
+    return data.id;
+  },
+
+  fetchVoiceProfiles: async () => {
+    set({ voiceProfilesLoading: true });
+    try {
+      const [profilesRes, extRes] = await Promise.all([
+        ttsApi.listProfiles(),
+        ttsApi.voicesExtended(),
+      ]);
+      set({
+        voiceProfiles: profilesRes.data.profiles,
+        fishAudioAvailable: extRes.data.fish_audio_available,
+        voiceProfilesLoading: false,
+      });
+    } catch {
+      set({ voiceProfilesLoading: false });
+    }
+  },
+
+  createVoiceProfile: async (profileData) => {
+    const { data } = await ttsApi.createProfile(profileData);
+    set((s) => ({ voiceProfiles: [data, ...s.voiceProfiles] }));
+    return data;
+  },
+
+  updateVoiceProfile: async (id, updates) => {
+    const { data } = await ttsApi.updateProfile(id, updates);
+    set((s) => ({
+      voiceProfiles: s.voiceProfiles.map((p) =>
+        p.id === id ? { ...p, ...data } : p
+      ),
+    }));
+  },
+
+  deleteVoiceProfile: async (id) => {
+    await ttsApi.deleteProfile(id);
+    set((s) => ({
+      voiceProfiles: s.voiceProfiles.filter((p) => p.id !== id),
+    }));
+  },
+
+  previewVoice: async (text, profileId, voice) => {
+    const response = await ttsApi.previewVoice(text, profileId, voice);
+    const url = URL.createObjectURL(response.data);
+    const prev = get().previewAudioUrl;
+    if (prev) URL.revokeObjectURL(prev);
+    set({ previewAudioUrl: url });
+  },
+
+  clearPreviewAudio: () => {
+    const prev = get().previewAudioUrl;
+    if (prev) URL.revokeObjectURL(prev);
+    set({ previewAudioUrl: null });
+  },
+
+  startVoiceoverMultiVoice: async (trackId, projectId, defaultProfileId, segmentVoices) => {
+    const { data } = await ttsApi.voiceoverMultiVoice({
+      track_id: trackId,
+      project_id: projectId,
+      voice_profile_id: defaultProfileId,
+      segment_voices: segmentVoices,
+    });
     set({ ttsJobId: data.id });
     return data.id;
   },

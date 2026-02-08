@@ -1241,7 +1241,15 @@ def generate_tts_task(self, job_id: int) -> dict:
 
         _publish_progress(job_id, 20.0, detail="Generating TTS audio...")
 
-        local_path = tts_service.generate_tts(text, voice=voice)
+        voice_profile_id = input_params.get("voice_profile_id")
+        if voice_profile_id:
+            from app.models.voice_profile import VoiceProfile
+            profile = session.get(VoiceProfile, voice_profile_id)
+            if profile is None:
+                raise ValueError(f"VoiceProfile {voice_profile_id} not found")
+            local_path = tts_service.generate_tts_with_profile(text, profile)
+        else:
+            local_path = tts_service.generate_tts(text, voice=voice)
 
         try:
             _publish_progress(job_id, 70.0, detail="Uploading TTS audio...")
@@ -1507,6 +1515,160 @@ def generate_voiceover(self, job_id: int) -> dict:
     except Exception as exc:
         session.rollback()
         logger.exception("generate_voiceover failed for job %s", job_id)
+        try:
+            if job:
+                _update_job_status(
+                    session, job, JobStatus.FAILED.value,
+                    error_message=str(exc)[:2000],
+                )
+        except Exception:
+            logger.exception("Failed to update job status to FAILED")
+        raise self.retry(exc=exc, countdown=60)
+    finally:
+        session.close()
+
+
+# =========================================================================
+# Task: generate_voiceover_multi_voice
+# =========================================================================
+
+@celery_app.task(name="app.workers.tasks.generate_voiceover_multi_voice", bind=True, max_retries=2)
+def generate_voiceover_multi_voice(self, job_id: int) -> dict:
+    """Generate voiceover with per-segment voice profiles, merge into
+    a single audio track, and upload.
+    """
+    from app.models.voice_profile import VoiceProfile
+    from app.services import tts as tts_service
+
+    session = get_sync_session()
+    try:
+        job: ProcessingJob | None = session.get(ProcessingJob, job_id)
+        if job is None:
+            raise ValueError(f"Job {job_id} not found")
+
+        _update_job_status(session, job, JobStatus.PROCESSING.value, progress=0.0)
+
+        input_params = job.input_params or {}
+        track_id = input_params.get("track_id")
+        default_profile_id = input_params.get("voice_profile_id")
+        segment_voice_map = input_params.get("segment_voices") or {}
+        project_id = job.project_id
+
+        if not track_id:
+            raise ValueError("No track_id specified in input_params")
+        if not project_id:
+            raise ValueError("No project_id specified for voiceover job")
+
+        # Load default profile
+        default_profile = None
+        if default_profile_id:
+            default_profile = session.get(VoiceProfile, default_profile_id)
+            if default_profile is None:
+                raise ValueError(f"Default VoiceProfile {default_profile_id} not found")
+
+        # Load per-segment profiles
+        seg_profiles: dict[int, VoiceProfile] = {}
+        for seg_idx_str, prof_id in segment_voice_map.items():
+            seg_idx = int(seg_idx_str)
+            prof = session.get(VoiceProfile, prof_id)
+            if prof is None:
+                raise ValueError(f"VoiceProfile {prof_id} not found for segment {seg_idx}")
+            seg_profiles[seg_idx] = prof
+
+        segments = (
+            session.query(SubtitleSegment)
+            .filter(SubtitleSegment.track_id == track_id)
+            .order_by(SubtitleSegment.index)
+            .all()
+        )
+
+        if not segments:
+            _update_job_status(
+                session, job, JobStatus.COMPLETED.value,
+                progress=100.0,
+                result={"track_id": track_id, "segment_count": 0},
+            )
+            return {"job_id": job_id, "segment_count": 0}
+
+        _publish_progress(job_id, 10.0, detail="Generating multi-voice voiceover...")
+
+        seg_dicts = [
+            {"text": seg.text, "start": seg.start_ms / 1000.0, "end": seg.end_ms / 1000.0}
+            for seg in segments
+        ]
+
+        segment_results = tts_service.generate_segment_voiceover_multi_voice(
+            seg_dicts,
+            default_profile=default_profile,
+            segment_profiles=seg_profiles,
+            default_voice=None,
+        )
+
+        _publish_progress(job_id, 60.0, detail="Merging voiceover segments...")
+
+        merged_output = tempfile.NamedTemporaryFile(delete=False, suffix=".m4a")
+        merged_output.close()
+
+        try:
+            tts_service.merge_voiceover_segments(segment_results, merged_output.name)
+
+            _publish_progress(job_id, 85.0, detail="Uploading voiceover...")
+
+            object_name = f"voiceover/{job.user_id}/{job_id}/voiceover.m4a"
+            with open(merged_output.name, "rb") as f:
+                upload_file(
+                    settings.MINIO_BUCKET_ASSETS,
+                    object_name,
+                    f.read(),
+                    content_type="audio/mp4",
+                )
+
+            download_url = get_presigned_url(
+                settings.MINIO_BUCKET_ASSETS, object_name, expires=86400,
+            )
+
+            voice_label = default_profile.name if default_profile else settings.TTS_VOICE_ZH
+            tts_track = TTSTrack(
+                project_id=project_id,
+                voice=voice_label,
+                language="zh",
+                file_path=f"/{settings.MINIO_BUCKET_ASSETS}/{object_name}",
+                segments=[
+                    {
+                        "text": r["text"],
+                        "start": r["start"],
+                        "end": r["end"],
+                        "voice_profile_id": r.get("voice_profile_id"),
+                    }
+                    for r in segment_results
+                ],
+            )
+            session.add(tts_track)
+            session.commit()
+
+            _update_job_status(
+                session, job, JobStatus.COMPLETED.value,
+                progress=100.0,
+                result={
+                    "download_url": download_url,
+                    "tts_track_id": tts_track.id,
+                    "segment_count": len(segment_results),
+                },
+            )
+
+            return {"job_id": job_id, "tts_track_id": tts_track.id}
+
+        finally:
+            if os.path.exists(merged_output.name):
+                os.unlink(merged_output.name)
+            for r in segment_results:
+                fp = r.get("file_path", "")
+                if fp and os.path.exists(fp):
+                    os.unlink(fp)
+
+    except Exception as exc:
+        session.rollback()
+        logger.exception("generate_voiceover_multi_voice failed for job %s", job_id)
         try:
             if job:
                 _update_job_status(

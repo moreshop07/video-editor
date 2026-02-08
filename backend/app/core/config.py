@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     TTS_VOICE_ZH: str = "zh-TW-HsiaoChenNeural"
     TTS_VOICE_EN: str = "en-US-AriaNeural"
 
+    # --- Fish Audio (voice cloning) ------------------------------------------
+    FISH_AUDIO_API_KEY: Optional[str] = None
+    FISH_AUDIO_BASE_URL: str = "https://api.fish.audio/v1"
+
     # --- External media APIs ------------------------------------------------
     PEXELS_API_KEY: Optional[str] = None
     PIXABAY_API_KEY: Optional[str] = None

@@ -190,3 +190,100 @@ def merge_voiceover_segments(
 
     subprocess.run(cmd, capture_output=True, text=True, check=True)
     return output_path
+
+
+# --- Voice Profile dispatch -----------------------------------------------
+
+
+def generate_tts_with_profile(
+    text: str,
+    profile: Any,
+    output_path: str | None = None,
+) -> str:
+    """Generate TTS using a voice profile (dispatches to correct provider).
+
+    Parameters
+    ----------
+    text:
+        The text to convert to speech.
+    profile:
+        A VoiceProfile ORM instance with provider, provider_voice_id, settings.
+    output_path:
+        Path to save the output audio. Auto-generated if None.
+
+    Returns
+    -------
+    str
+        Path to the generated audio file.
+    """
+    if profile.provider == "fish_audio":
+        from app.services import fish_audio
+
+        if not fish_audio.is_available():
+            raise ValueError("Fish Audio API key not configured")
+        speed = (profile.settings or {}).get("speed", 1.0)
+        return fish_audio.generate_tts(
+            text=text,
+            model_id=profile.provider_voice_id,
+            output_path=output_path,
+            reference_audio_path=profile.sample_audio_path,
+            speed=speed,
+        )
+    else:
+        # Edge TTS (default)
+        return generate_tts(
+            text=text,
+            voice=profile.provider_voice_id,
+            output_path=output_path,
+        )
+
+
+def generate_segment_voiceover_multi_voice(
+    segments: list[dict[str, Any]],
+    default_voice: str | None = None,
+    default_profile: Any | None = None,
+    segment_profiles: dict[int, Any] | None = None,
+    output_dir: str | None = None,
+) -> list[dict[str, Any]]:
+    """Generate TTS for each segment, allowing per-segment voice profiles.
+
+    For each segment:
+      1. If segment index has an entry in segment_profiles, use that profile
+      2. Else if default_profile is set, use that
+      3. Else fall back to default_voice (Edge TTS voice ID)
+
+    Returns the same format as generate_segment_voiceover().
+    """
+    default_voice = default_voice or settings.TTS_VOICE_ZH
+    if output_dir is None:
+        output_dir = tempfile.mkdtemp(prefix="tts_multi_")
+    os.makedirs(output_dir, exist_ok=True)
+
+    segment_profiles = segment_profiles or {}
+    results = []
+
+    for i, seg in enumerate(segments):
+        text = seg.get("text", "")
+        if not text.strip():
+            continue
+
+        seg_output = os.path.join(output_dir, f"seg_{i:04d}.mp3")
+        profile = segment_profiles.get(i, default_profile)
+
+        if profile is not None:
+            generate_tts_with_profile(text, profile, output_path=seg_output)
+        else:
+            generate_tts(text, voice=default_voice, output_path=seg_output)
+
+        result = {
+            "index": i,
+            "text": text,
+            "start": seg.get("start", 0),
+            "end": seg.get("end", 0),
+            "file_path": seg_output,
+        }
+        if profile is not None:
+            result["voice_profile_id"] = profile.id
+        results.append(result)
+
+    return results

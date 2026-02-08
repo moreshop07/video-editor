@@ -179,6 +179,44 @@ export const ttsApi = {
     apiClient.post('/tts/voiceover', { track_id: trackId, project_id: projectId, voice }),
   voices: () =>
     apiClient.get('/tts/voices'),
+  voicesExtended: () =>
+    apiClient.get('/tts/voices-extended'),
+  listProfiles: () =>
+    apiClient.get('/tts/voice-profiles'),
+  createProfile: (data: {
+    name: string;
+    description?: string;
+    provider: string;
+    provider_voice_id: string;
+    settings?: Record<string, unknown>;
+  }) => apiClient.post('/tts/voice-profiles', data),
+  getProfile: (id: number) =>
+    apiClient.get(`/tts/voice-profiles/${id}`),
+  updateProfile: (id: number, data: {
+    name?: string;
+    description?: string;
+    settings?: Record<string, unknown>;
+    is_default?: boolean;
+  }) => apiClient.patch(`/tts/voice-profiles/${id}`, data),
+  deleteProfile: (id: number) =>
+    apiClient.delete(`/tts/voice-profiles/${id}`),
+  uploadSampleAudio: (profileId: number, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiClient.post(`/tts/voice-profiles/${profileId}/sample-audio`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+  previewVoice: (text: string, voiceProfileId?: number, voice?: string) =>
+    apiClient.post('/tts/voice-preview', {
+      text, voice_profile_id: voiceProfileId, voice,
+    }, { responseType: 'blob' }),
+  voiceoverMultiVoice: (data: {
+    track_id: number;
+    project_id: number;
+    voice_profile_id?: number;
+    segment_voices?: Record<number, number>;
+  }) => apiClient.post('/tts/voiceover-multi-voice', data),
 };
 
 // ---- Auto Edit API ----
