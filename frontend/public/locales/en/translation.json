@@ -586,6 +586,23 @@
     "seconds": "seconds",
     "noApiKey": "PiAPI key not configured"
   },
+  "speedRamp": {
+    "title": "Speed Ramping",
+    "speed": "Speed",
+    "constant": "Constant",
+    "variable": "Variable",
+    "enableKeyframes": "Enable Speed Keyframes",
+    "resetToConstant": "Reset to Constant Speed",
+    "addKeyframe": "Add Keyframe",
+    "removeKeyframe": "Remove",
+    "presets": "Presets",
+    "smoothSlowMo": "Smooth Slow-Mo",
+    "rampUp": "Speed Ramp Up",
+    "rampDown": "Speed Ramp Down",
+    "bounce": "Bounce",
+    "currentSpeed": "Speed at Playhead",
+    "reset": "Reset"
+  },
   "audioMixing": {
     "title": "Audio Mixing",
     "trackVolume": "Track Volume",

@@ -21,6 +21,7 @@ import {
 import AudioProcessingPanel from '@/components/audio/AudioProcessingPanel';
 import { TransitionPicker } from '@/components/editor/timeline/TransitionPicker';
 import { KeyframeEditor } from './KeyframeEditor';
+import { SpeedRampEditor } from './SpeedRampEditor';
 
 function PropertiesPanelComponent() {
   const { t } = useTranslation();
@@ -224,15 +225,14 @@ function PropertiesPanelComponent() {
         onChange={(v) => handleUpdate('volume', v)}
       />
 
-      {/* Speed control */}
-      <PropertySlider
-        label={t('effects.speedLabel')}
-        value={clipFilters.speed}
-        min={0.25}
-        max={4}
-        step={0.25}
-        onChange={handleSpeedChange}
-        format={(v) => `${v}x`}
+      {/* Speed Ramp control */}
+      <SpeedRampEditor
+        clipId={clip.id}
+        trackId={track.id}
+        clipStartTime={clip.startTime}
+        clipDuration={clip.endTime - clip.startTime}
+        staticSpeed={clipFilters.speed}
+        keyframeTracks={clip.keyframes}
       />
 
       {/* Video/Sticker specific */}

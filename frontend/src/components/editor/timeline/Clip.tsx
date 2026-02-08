@@ -228,6 +228,13 @@ function ClipComponent({ clip, trackId, pxPerMs, trackLocked }: ClipProps) {
           </span>
         </div>
 
+        {/* Speed indicator badge */}
+        {((clip.filters?.speed ?? 1) !== 1 || (clip.keyframes?.speed?.length ?? 0) > 0) && (
+          <span className="absolute top-0.5 right-0.5 text-[8px] text-white/70 bg-black/30 px-0.5 rounded">
+            {(clip.keyframes?.speed?.length ?? 0) > 0 ? '~x' : `${clip.filters?.speed ?? 1}x`}
+          </span>
+        )}
+
         {/* Right trim handle */}
         <div
           className="absolute right-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-white/30 z-10"
@@ -278,6 +285,8 @@ export default React.memo(ClipComponent, (prev, next) => {
     prev.clip.name === next.clip.name &&
     prev.clip.trimStart === next.clip.trimStart &&
     prev.clip.trimEnd === next.clip.trimEnd &&
+    prev.clip.filters === next.clip.filters &&
+    prev.clip.keyframes === next.clip.keyframes &&
     prev.trackId === next.trackId &&
     prev.pxPerMs === next.pxPerMs &&
     prev.trackLocked === next.trackLocked

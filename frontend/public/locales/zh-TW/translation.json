@@ -586,6 +586,23 @@
     "seconds": "秒",
     "noApiKey": "PiAPI 金鑰未設定"
   },
+  "speedRamp": {
+    "title": "變速曲線",
+    "speed": "速度",
+    "constant": "固定",
+    "variable": "可變",
+    "enableKeyframes": "啟用速度關鍵幀",
+    "resetToConstant": "重設為固定速度",
+    "addKeyframe": "新增關鍵幀",
+    "removeKeyframe": "移除",
+    "presets": "預設",
+    "smoothSlowMo": "平滑慢動作",
+    "rampUp": "加速",
+    "rampDown": "減速",
+    "bounce": "彈跳",
+    "currentSpeed": "播放頭速度",
+    "reset": "重設"
+  },
   "audioMixing": {
     "title": "音訊混音",
     "trackVolume": "軌道音量",

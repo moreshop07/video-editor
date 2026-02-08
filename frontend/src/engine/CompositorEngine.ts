@@ -13,6 +13,7 @@ import { CanvasCompositor } from './CanvasCompositor';
 import { AudioMixerEngine } from './AudioMixerEngine';
 import { FrameScheduler } from './FrameScheduler';
 import { VideoDecoderPool } from './VideoDecoderPool';
+import { computeSourceTime } from '@/utils/speedRampUtils';
 import { HTMLVideoPool } from './fallback/HTMLVideoPool';
 import { buildCanvasFilterString } from '@/effects/buildCanvasFilter';
 import { TransitionRenderer } from './TransitionRenderer';
@@ -498,8 +499,9 @@ export class CompositorEngine {
 
     if (!isVideo && !isImage) return null;
 
-    // Calculate source time within the clip
-    const sourceTimeMs = clip.trimStart + (timeMs - clip.startTime);
+    // Calculate source time within the clip (speed-aware)
+    const clipTimeMs = timeMs - clip.startTime;
+    const sourceTimeMs = computeSourceTime(clip.trimStart, clipTimeMs, clip.keyframes, clip.filters?.speed ?? 1);
 
     try {
       if (isVideo) {
@@ -696,8 +698,8 @@ export class CompositorEngine {
         };
       }
 
-      // Calculate source time within the clip for video/image
-      const sourceTimeMs = clip.trimStart + clipTimeMs;
+      // Calculate source time within the clip for video/image (speed-aware)
+      const sourceTimeMs = computeSourceTime(clip.trimStart, clipTimeMs, clip.keyframes, clip.filters?.speed ?? 1);
 
       if (isVideo) {
         frame = await this.decoderPool.getFrame(clip.assetId, sourceTimeMs);

@@ -14,7 +14,8 @@ export type AnimatableProperty =
   | 'cropBottom'
   | 'cropLeft'
   | 'cropRight'
-  | 'textRevealProgress';
+  | 'textRevealProgress'
+  | 'speed';
 
 export type EasingType = 'linear' | 'easeIn' | 'easeOut' | 'easeInOut';
 
@@ -49,6 +50,7 @@ export const ANIMATABLE_PROPERTY_DEFAULTS: Record<AnimatableProperty, number> = 
   cropLeft: 0,
   cropRight: 0,
   textRevealProgress: 1,
+  speed: 1,
 };
 
 // Property display info for UI
@@ -135,5 +137,12 @@ export const ANIMATABLE_PROPERTY_INFO: Record<AnimatableProperty, {
     max: 1,
     step: 0.01,
     format: (v) => `${Math.round(v * 100)}%`,
+  },
+  speed: {
+    labelKey: 'speedRamp.speed',
+    min: 0.25,
+    max: 4,
+    step: 0.05,
+    format: (v) => `${v.toFixed(2)}x`,
   },
 };

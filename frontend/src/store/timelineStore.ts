@@ -6,6 +6,7 @@ import type { Transition } from '@/types/transitions';
 import type { KeyframeTracks, AnimatableProperty } from '@/types/keyframes';
 import type { PipBorder } from '@/engine/types';
 import { setKeyframe, removeKeyframe } from '@/utils/keyframeUtils';
+import { computeSourceTime } from '@/utils/speedRampUtils';
 
 // Collaboration broadcast support
 let _suppressBroadcast = false;
@@ -705,17 +706,45 @@ export const useTimelineStore = create<TimelineState>()(
             const clip = track.clips[clipIndex];
             if (splitTime <= clip.startTime || splitTime >= clip.endTime) return track;
 
+            const splitClipTime = splitTime - clip.startTime;
+            const staticSpeed = clip.filters?.speed ?? 1;
+
+            // Speed-aware trimStart for the right clip
+            const rightTrimStart = computeSourceTime(
+              clip.trimStart, splitClipTime, clip.keyframes, staticSpeed,
+            );
+
+            // Split all keyframe tracks between left and right clips
+            let leftKeyframes = clip.keyframes;
+            let rightKeyframes = clip.keyframes;
+
+            if (clip.keyframes) {
+              const lkf: KeyframeTracks = {};
+              const rkf: KeyframeTracks = {};
+              for (const [prop, kfs] of Object.entries(clip.keyframes)) {
+                if (!kfs || kfs.length === 0) continue;
+                lkf[prop] = kfs.filter((k) => k.time <= splitClipTime);
+                rkf[prop] = kfs
+                  .filter((k) => k.time >= splitClipTime)
+                  .map((k) => ({ ...k, time: k.time - splitClipTime }));
+              }
+              leftKeyframes = Object.keys(lkf).length > 0 ? lkf : undefined;
+              rightKeyframes = Object.keys(rkf).length > 0 ? rkf : undefined;
+            }
+
             const leftClip: Clip = {
               ...clip,
               id: genClipId(),
               endTime: splitTime,
+              keyframes: leftKeyframes,
             };
 
             const rightClip: Clip = {
               ...clip,
               id: genClipId(),
               startTime: splitTime,
-              trimStart: clip.trimStart + (splitTime - clip.startTime),
+              trimStart: rightTrimStart,
+              keyframes: rightKeyframes,
             };
 
             const newClips = [...track.clips];

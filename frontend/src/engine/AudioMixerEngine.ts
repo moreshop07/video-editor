@@ -1,6 +1,7 @@
 import type { RenderableTrack, RenderableClip } from './types';
 import type { TrackAudioSettings } from '@/effects/types';
 import { AssetCache } from './AssetCache';
+import { computeSourceTime, getSpeedAtTime } from '@/utils/speedRampUtils';
 
 interface ActiveSource {
   source: AudioBufferSourceNode;
@@ -353,15 +354,25 @@ export class AudioMixerEngine {
     // Connect clipGain to the first node in the track chain (eqLow)
     clipGain.connect(trackNodes.eqLow);
 
-    // Calculate scheduling parameters
+    // Speed-aware scheduling parameters
+    const staticSpeed = clip.filters?.speed ?? 1;
+    const hasSpeedKeyframes = (clip.keyframes?.speed?.length ?? 0) > 0;
     const clipStartDelay = Math.max(0, clip.startTime - currentTimeMs) / 1000;
-    const sourceOffset = (clip.trimStart + Math.max(0, currentTimeMs - clip.startTime)) / 1000;
+    const elapsedClipTimeMs = Math.max(0, currentTimeMs - clip.startTime);
+    const sourceOffset = computeSourceTime(clip.trimStart, elapsedClipTimeMs, clip.keyframes, staticSpeed) / 1000;
     const remainingDuration = (clip.endTime - Math.max(clip.startTime, currentTimeMs)) / 1000;
     const effectiveStart = Math.max(clip.startTime, currentTimeMs);
 
     const audioStartTime = this.audioCtx.currentTime + clipStartDelay;
     const audioEndTime = audioStartTime + remainingDuration;
     const targetVolume = clip.volume;
+
+    // Set playback rate for speed
+    if (hasSpeedKeyframes) {
+      this.scheduleSpeedCurve(source, clip, currentTimeMs, audioStartTime, remainingDuration);
+    } else {
+      source.playbackRate.value = staticSpeed;
+    }
 
     const fadeInMs = clip.fadeInMs ?? 0;
     const fadeOutMs = clip.fadeOutMs ?? 0;
@@ -400,6 +411,37 @@ export class AudioMixerEngine {
     source.onended = () => {
       this.activeSources = this.activeSources.filter((s) => s.source !== source);
     };
+  }
+
+  /**
+   * Schedule playbackRate automation for speed keyframes on an audio source.
+   */
+  private scheduleSpeedCurve(
+    source: AudioBufferSourceNode,
+    clip: RenderableClip,
+    currentTimeMs: number,
+    audioStartTime: number,
+    timelineDurationSec: number,
+  ): void {
+    const speedKfs = clip.keyframes?.speed;
+    if (!speedKfs || speedKfs.length === 0) return;
+
+    const clipStartMs = Math.max(clip.startTime, currentTimeMs);
+    const initialClipTime = clipStartMs - clip.startTime;
+    const staticSpeed = clip.filters?.speed ?? 1;
+
+    // Set initial speed
+    const initialSpeed = getSpeedAtTime(clip.keyframes, staticSpeed, initialClipTime);
+    source.playbackRate.setValueAtTime(initialSpeed, audioStartTime);
+
+    // Schedule ramps at each keyframe that falls within playback range
+    const sorted = [...speedKfs].sort((a, b) => a.time - b.time);
+    for (const kf of sorted) {
+      const kfOffsetSec = (kf.time - initialClipTime) / 1000;
+      if (kfOffsetSec <= 0) continue;
+      if (kfOffsetSec > timelineDurationSec) break;
+      source.playbackRate.linearRampToValueAtTime(kf.value, audioStartTime + kfOffsetSec);
+    }
   }
 
   pause(): void {
