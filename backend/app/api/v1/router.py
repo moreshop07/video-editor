@@ -8,6 +8,7 @@ from app.api.v1.auth import router as auth_router
 from app.api.v1.ai_video import router as ai_video_router
 from app.api.v1.auto_edit import router as auto_edit_router
 from app.api.v1.collaboration import router as collaboration_router
+from app.api.v1.smart_edit import router as smart_edit_router
 from app.api.v1.downloads import router as downloads_router
 from app.api.v1.effects import router as effects_router
 from app.api.v1.external import router as external_router
@@ -37,3 +38,4 @@ api_v1_router.include_router(tts_router)
 api_v1_router.include_router(auto_edit_router)
 api_v1_router.include_router(ai_video_router)
 api_v1_router.include_router(collaboration_router)
+api_v1_router.include_router(smart_edit_router)

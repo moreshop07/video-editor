@@ -1656,3 +1656,296 @@ def generate_ai_video(self, job_id: int) -> dict:
         raise self.retry(exc=exc, countdown=60)
     finally:
         session.close()
+
+
+# =========================================================================
+# Task: smart_edit_task
+# =========================================================================
+
+@celery_app.task(name="app.workers.tasks.smart_edit_task", bind=True, max_retries=2)
+def smart_edit_task(self, job_id: int) -> dict:
+    """Execute a smart edit operation (beat_sync, montage,
+    platform_optimize, highlight_detect).
+    """
+    from app.services import smart_edit as smart_edit_service
+    from app.services import analyzer as analyzer_service
+
+    session = get_sync_session()
+    job: ProcessingJob | None = None
+    try:
+        job = session.get(ProcessingJob, job_id)
+        if job is None:
+            raise ValueError(f"Job {job_id} not found")
+
+        _update_job_status(session, job, JobStatus.PROCESSING.value, progress=0.0)
+
+        input_params = job.input_params or {}
+        operation = input_params.get("operation", "")
+
+        if operation == "beat_sync":
+            result = _smart_edit_beat_sync(session, job, input_params, smart_edit_service)
+        elif operation == "montage":
+            result = _smart_edit_montage(session, job, input_params, smart_edit_service)
+        elif operation == "platform_optimize":
+            result = _smart_edit_platform_optimize(session, job, input_params, smart_edit_service)
+        elif operation == "highlight_detect":
+            result = _smart_edit_highlight_detect(
+                session, job, input_params, smart_edit_service, analyzer_service,
+            )
+        else:
+            raise ValueError(f"Unknown smart edit operation: {operation}")
+
+        _update_job_status(
+            session, job, JobStatus.COMPLETED.value,
+            progress=100.0, result=result,
+        )
+        return {"job_id": job_id, **result}
+
+    except Exception as exc:
+        session.rollback()
+        logger.exception("smart_edit_task failed for job %s", job_id)
+        try:
+            if job:
+                _update_job_status(
+                    session, job, JobStatus.FAILED.value,
+                    error_message=str(exc)[:2000],
+                )
+        except Exception:
+            logger.exception("Failed to update job status to FAILED")
+        raise self.retry(exc=exc, countdown=60)
+    finally:
+        session.close()
+
+
+def _smart_edit_beat_sync(session, job, params, service):
+    """Beat-sync sub-operation."""
+    asset_id = params["asset_id"]
+    asset = session.get(Asset, asset_id)
+    if asset is None:
+        raise ValueError(f"Asset {asset_id} not found")
+
+    _publish_progress(job.id, 10.0, detail="Downloading video...")
+    local_video = _download_from_minio(asset.file_path)
+
+    try:
+        # Determine music source
+        music_path = None
+        music_track_id = params.get("music_track_id")
+        music_asset_id = params.get("music_asset_id")
+
+        if music_track_id:
+            mt = session.get(MusicTrack, music_track_id)
+            if mt and mt.beat_timestamps:
+                beat_ms = mt.beat_timestamps.get("beats_ms", [])
+                if beat_ms:
+                    _publish_progress(job.id, 50.0, detail="Using pre-computed beats...")
+                    video_duration = asset.duration_ms or 0
+                    clips = service.generate_beat_sync_clips(
+                        video_duration, beat_ms, asset_id,
+                        params.get("include_transitions", True),
+                        params.get("transition_type", "fade"),
+                    )
+                    return {
+                        "operation": "beat_sync",
+                        "clips": clips,
+                        "beat_count": len(beat_ms),
+                        "clip_count": len(clips),
+                    }
+            if mt:
+                music_path = _download_from_minio(mt.file_path)
+        elif music_asset_id:
+            ma = session.get(Asset, music_asset_id)
+            if ma:
+                music_path = _download_from_minio(ma.file_path)
+
+        if not music_path:
+            # Use the video's own audio for beat detection
+            music_path = service.extract_audio_to_wav(local_video)
+
+        _publish_progress(job.id, 30.0, detail="Detecting beats...")
+
+        try:
+            beat_ms = service.detect_beat_timestamps(
+                music_path,
+                sensitivity=params.get("sensitivity", 1.0),
+                min_clip_duration_ms=params.get("min_clip_duration_ms", 500),
+            )
+        finally:
+            if music_path and os.path.exists(music_path):
+                os.unlink(music_path)
+
+        _publish_progress(job.id, 70.0, detail="Generating beat-synced clips...")
+
+        video_duration = asset.duration_ms or 0
+        if not video_duration:
+            probe = ffmpeg_service.probe_file(local_video)
+            video_duration = int(float(probe["format"]["duration"]) * 1000)
+
+        clips = service.generate_beat_sync_clips(
+            video_duration, beat_ms, asset_id,
+            params.get("include_transitions", True),
+            params.get("transition_type", "fade"),
+        )
+
+        return {
+            "operation": "beat_sync",
+            "clips": clips,
+            "beat_count": len(beat_ms),
+            "clip_count": len(clips),
+        }
+    finally:
+        if os.path.exists(local_video):
+            os.unlink(local_video)
+
+
+def _smart_edit_montage(session, job, params, service):
+    """Montage builder sub-operation."""
+    asset_ids = params.get("asset_ids", [])
+    if len(asset_ids) < 2:
+        raise ValueError("Montage requires at least 2 assets")
+
+    _publish_progress(job.id, 10.0, detail="Loading asset metadata...")
+
+    assets = []
+    for aid in asset_ids:
+        asset = session.get(Asset, aid)
+        if asset is None:
+            raise ValueError(f"Asset {aid} not found")
+        assets.append({
+            "id": asset.id,
+            "duration_ms": asset.duration_ms,
+            "asset_type": asset.asset_type,
+            "original_filename": asset.original_filename,
+        })
+
+    _publish_progress(job.id, 40.0, detail="Building montage...")
+
+    clips = service.build_montage_clips(
+        assets,
+        style=params.get("style", "cinematic"),
+        target_duration_ms=params.get("target_duration_ms"),
+        include_transitions=params.get("include_transitions", True),
+    )
+
+    _publish_progress(job.id, 90.0, detail="Finalizing...")
+
+    # Optionally add music track clip
+    music_clip = None
+    music_track_id = params.get("music_track_id")
+    if music_track_id:
+        mt = session.get(MusicTrack, music_track_id)
+        if mt:
+            total_duration = max((c["endTime"] for c in clips), default=0)
+            music_clip = {
+                "assetId": str(mt.id),
+                "startTime": 0,
+                "endTime": min(mt.duration_ms or total_duration, total_duration),
+                "trimStart": 0,
+                "trimEnd": 0,
+                "duration": mt.duration_ms or 0,
+                "name": mt.title,
+                "type": "audio",
+            }
+
+    return {
+        "operation": "montage",
+        "clips": clips,
+        "music_clip": music_clip,
+        "clip_count": len(clips),
+        "style": params.get("style", "cinematic"),
+    }
+
+
+def _smart_edit_platform_optimize(session, job, params, service):
+    """Platform optimizer sub-operation."""
+    project_id = params.get("project_id")
+    platform = params.get("platform", "tiktok")
+
+    if not project_id:
+        raise ValueError("project_id is required for platform optimize")
+
+    project = session.get(Project, project_id)
+    if project is None:
+        raise ValueError(f"Project {project_id} not found")
+
+    _publish_progress(job.id, 20.0, detail="Analyzing current timeline...")
+
+    # Estimate current duration from project_data timeline
+    current_duration = 0
+    project_data = project.project_data or {}
+    tracks = project_data.get("tracks", [])
+    for track in tracks:
+        for clip in track.get("clips", []):
+            end_time = clip.get("endTime", 0)
+            if end_time > current_duration:
+                current_duration = end_time
+
+    current_width = project.width or 1920
+    current_height = project.height or 1080
+
+    _publish_progress(job.id, 60.0, detail="Computing platform adjustments...")
+
+    adjustments = service.compute_platform_adjustments(
+        platform, current_duration, current_width, current_height,
+    )
+
+    return {
+        "operation": "platform_optimize",
+        "adjustments": adjustments,
+        "current_duration_ms": current_duration,
+    }
+
+
+def _smart_edit_highlight_detect(session, job, params, service, analyzer_service):
+    """Highlight detection sub-operation."""
+    asset_id = params["asset_id"]
+    asset = session.get(Asset, asset_id)
+    if asset is None:
+        raise ValueError(f"Asset {asset_id} not found")
+
+    local_path = _download_from_minio(asset.file_path)
+
+    try:
+        _publish_progress(job.id, 10.0, detail="Detecting scenes...")
+        scenes = analyzer_service.detect_scenes(local_path)
+
+        _publish_progress(job.id, 40.0, detail="Analyzing audio for highlights...")
+        highlights = service.detect_highlights(
+            local_path, scenes,
+            max_highlights=params.get("max_highlights", 5),
+            min_duration_ms=params.get("min_highlight_duration_ms", 3000),
+            max_duration_ms=params.get("max_highlight_duration_ms", 15000),
+        )
+
+        _publish_progress(job.id, 90.0, detail="Finalizing...")
+
+        # Generate clip definitions for each highlight
+        highlight_clips = []
+        timeline_cursor = 0.0
+        for i, h in enumerate(highlights):
+            clip: dict = {
+                "assetId": str(asset_id),
+                "startTime": timeline_cursor,
+                "endTime": timeline_cursor + h["duration_ms"],
+                "trimStart": h["start_ms"],
+                "trimEnd": 0,
+                "duration": asset.duration_ms or 0,
+                "name": f"Highlight {i + 1}",
+                "type": "video",
+                "score": h["score"],
+                "reasons": h.get("reasons", []),
+            }
+            if i > 0:
+                clip["transitionIn"] = {"type": "fade", "durationMs": 500}
+            highlight_clips.append(clip)
+            timeline_cursor += h["duration_ms"]
+
+        return {
+            "operation": "highlight_detect",
+            "highlights": highlights,
+            "clips": highlight_clips,
+            "highlight_count": len(highlights),
+        }
+    finally:
+        if os.path.exists(local_path):
+            os.unlink(local_path)

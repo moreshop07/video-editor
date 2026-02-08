@@ -205,6 +205,43 @@ export const aiVideoApi = {
   }) => apiClient.post('/ai-video/generate', data),
 };
 
+// ---- Smart Edit API ----
+export const smartEditApi = {
+  beatSync: (data: {
+    asset_id: number;
+    music_track_id?: number;
+    music_asset_id?: number;
+    project_id?: number;
+    sensitivity?: number;
+    min_clip_duration_ms?: number;
+    include_transitions?: boolean;
+    transition_type?: string;
+  }) => apiClient.post('/smart-edit/beat-sync', data),
+
+  montage: (data: {
+    asset_ids: number[];
+    project_id?: number;
+    style?: 'fast_paced' | 'cinematic' | 'slideshow';
+    target_duration_ms?: number;
+    music_track_id?: number;
+    include_transitions?: boolean;
+  }) => apiClient.post('/smart-edit/montage', data),
+
+  platformOptimize: (data: {
+    project_id: number;
+    platform: 'tiktok' | 'youtube_shorts' | 'instagram_reels' | 'youtube';
+    asset_id?: number;
+  }) => apiClient.post('/smart-edit/platform-optimize', data),
+
+  highlightDetect: (data: {
+    asset_id: number;
+    project_id?: number;
+    max_highlights?: number;
+    min_highlight_duration_ms?: number;
+    max_highlight_duration_ms?: number;
+  }) => apiClient.post('/smart-edit/highlight-detect', data),
+};
+
 // ---- Collaboration API ----
 export const collaborationApi = {
   invite: (projectId: number, data: { email: string; role: string }) =>
