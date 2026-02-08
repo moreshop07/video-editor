@@ -114,7 +114,8 @@ export default function VideoPreview() {
       })),
       muted: t.muted,
       visible: t.visible,
-      volume: 1,
+      volume: t.audioSettings?.volume ?? 1,
+      audioSettings: t.audioSettings,
     }));
 
     engine.setTracks(renderableTracks);

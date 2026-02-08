@@ -1,4 +1,4 @@
-import type { ClipFilters } from '@/effects/types';
+import type { ClipFilters, TrackAudioSettings } from '@/effects/types';
 import type { Transition } from '@/types/transitions';
 import type { KeyframeTracks } from '@/types/keyframes';
 
@@ -19,6 +19,7 @@ export interface RenderableTrack {
   clips: RenderableClip[];
   muted: boolean;
   visible: boolean;
+  audioSettings?: TrackAudioSettings;
   volume: number;
 }
 

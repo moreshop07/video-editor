@@ -266,6 +266,18 @@ export default function Timeline() {
               <span className="text-[10px] text-[var(--color-text)] truncate flex-1">
                 {track.name}
               </span>
+              {['video', 'audio', 'music', 'sfx'].includes(track.type) && (
+                <input
+                  type="range"
+                  min={0}
+                  max={2}
+                  step={0.05}
+                  value={track.audioSettings?.volume ?? 1}
+                  onChange={(e) => useTimelineStore.getState().updateTrackAudio(track.id, { volume: Number(e.target.value) })}
+                  className="w-12 h-1 cursor-pointer appearance-none rounded bg-white/10 accent-[var(--accent)]"
+                  title={`${Math.round((track.audioSettings?.volume ?? 1) * 100)}%`}
+                />
+              )}
               <button
                 onClick={() => useTimelineStore.getState().toggleTrackMute(track.id)}
                 className={`text-[10px] ${track.muted ? 'text-red-400' : 'text-[var(--color-text-secondary)]'}`}

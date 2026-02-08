@@ -366,5 +366,23 @@
       "name": "Photo Slideshow",
       "description": "Photo montage with music"
     }
+  },
+  "audioMixing": {
+    "title": "Audio Mixing",
+    "trackVolume": "Track Volume",
+    "pan": "Pan",
+    "eq": "Equalizer",
+    "eqLow": "Low",
+    "eqMid": "Mid",
+    "eqHigh": "High",
+    "frequency": "Freq",
+    "gain": "Gain",
+    "compressor": "Compressor",
+    "threshold": "Threshold",
+    "ratio": "Ratio",
+    "attack": "Attack",
+    "release": "Release",
+    "knee": "Knee",
+    "meter": "Level"
   }
 }

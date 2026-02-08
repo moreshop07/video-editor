@@ -57,3 +57,55 @@ export const DEFAULT_CLIP_FILTERS: ClipFilters = {
   effects: [],
   speed: 1.0,
 };
+
+// ── Audio Mixing Types ──
+
+export interface EQBand {
+  frequency: number;  // Hz
+  gain: number;       // -12 to +12 dB
+  Q: number;          // Quality factor 0.1–10
+}
+
+export interface EQSettings {
+  enabled: boolean;
+  low: EQBand;       // lowshelf, default 200Hz
+  mid: EQBand;       // peaking, default 1000Hz
+  high: EQBand;      // highshelf, default 5000Hz
+}
+
+export const DEFAULT_EQ_SETTINGS: EQSettings = {
+  enabled: false,
+  low: { frequency: 200, gain: 0, Q: 1 },
+  mid: { frequency: 1000, gain: 0, Q: 1 },
+  high: { frequency: 5000, gain: 0, Q: 1 },
+};
+
+export interface CompressorSettings {
+  enabled: boolean;
+  threshold: number;  // -100 to 0 dB, default -24
+  ratio: number;      // 1 to 20, default 4
+  attack: number;     // 0 to 1 seconds, default 0.003
+  release: number;    // 0 to 1 seconds, default 0.25
+  knee: number;       // 0 to 40, default 30
+}
+
+export const DEFAULT_COMPRESSOR_SETTINGS: CompressorSettings = {
+  enabled: false,
+  threshold: -24,
+  ratio: 4,
+  attack: 0.003,
+  release: 0.25,
+  knee: 30,
+};
+
+export interface TrackAudioSettings {
+  volume: number;     // 0–2, default 1
+  pan: number;        // -1 (left) to 1 (right), default 0
+  eq?: EQSettings;
+  compressor?: CompressorSettings;
+}
+
+export const DEFAULT_TRACK_AUDIO: TrackAudioSettings = {
+  volume: 1,
+  pan: 0,
+};

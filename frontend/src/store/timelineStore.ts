@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { temporal } from 'zundo';
-import type { ClipFilters } from '@/effects/types';
+import type { ClipFilters, TrackAudioSettings } from '@/effects/types';
 import { DEFAULT_CLIP_FILTERS } from '@/effects/types';
 import type { Transition } from '@/types/transitions';
 import type { KeyframeTracks, AnimatableProperty } from '@/types/keyframes';
@@ -51,6 +51,7 @@ export interface Track {
   locked: boolean;
   height: number;
   visible: boolean;
+  audioSettings?: TrackAudioSettings;
 }
 
 // Project data format persisted to backend JSONB
@@ -65,6 +66,7 @@ export interface ProjectData {
       locked: boolean;
       height: number;
       visible: boolean;
+      audioSettings?: TrackAudioSettings;
       clips: Array<{
         id: string;
         assetId: string;
@@ -120,6 +122,7 @@ export function serializeForSave(state: {
         locked: t.locked,
         height: t.height,
         visible: t.visible,
+        audioSettings: t.audioSettings,
         clips: t.clips.map((c) => ({
           id: c.id,
           assetId: c.assetId,
@@ -178,6 +181,7 @@ interface TimelineState {
   toggleTrackMute: (trackId: string) => void;
   toggleTrackLock: (trackId: string) => void;
   toggleTrackVisibility: (trackId: string) => void;
+  updateTrackAudio: (trackId: string, settings: Partial<TrackAudioSettings>) => void;
 
   // Clip operations
   addClip: (trackId: string, clip: Omit<Clip, 'trackId'>) => void;
@@ -297,6 +301,15 @@ export const useTimelineStore = create<TimelineState>()(
         set((state) => ({
           tracks: state.tracks.map((t) =>
             t.id === trackId ? { ...t, visible: !t.visible } : t
+          ),
+        })),
+
+      updateTrackAudio: (trackId, settings) =>
+        set((state) => ({
+          tracks: state.tracks.map((t) =>
+            t.id === trackId
+              ? { ...t, audioSettings: { ...(t.audioSettings ?? { volume: 1, pan: 0 }), ...settings } }
+              : t
           ),
         })),
 
@@ -523,6 +536,7 @@ export const useTimelineStore = create<TimelineState>()(
             locked: t.locked,
             height: t.height,
             visible: t.visible,
+            audioSettings: t.audioSettings,
             clips: t.clips.map((c) => ({
               id: c.id,
               assetId: c.assetId,

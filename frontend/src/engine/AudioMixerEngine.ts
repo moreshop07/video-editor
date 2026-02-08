@@ -1,4 +1,5 @@
 import type { RenderableTrack, RenderableClip } from './types';
+import type { TrackAudioSettings } from '@/effects/types';
 import { AssetCache } from './AssetCache';
 
 interface ActiveSource {
@@ -6,10 +7,20 @@ interface ActiveSource {
   clipGain: GainNode;
 }
 
+interface TrackNodes {
+  gain: GainNode;
+  eqLow: BiquadFilterNode;
+  eqMid: BiquadFilterNode;
+  eqHigh: BiquadFilterNode;
+  compressor: DynamicsCompressorNode;
+  panner: StereoPannerNode;
+  analyser: AnalyserNode;
+}
+
 export class AudioMixerEngine {
   private audioCtx: AudioContext | null = null;
   private masterGain: GainNode | null = null;
-  private trackGains = new Map<string, GainNode>();
+  private trackNodes = new Map<string, TrackNodes>();
   private activeSources: ActiveSource[] = [];
   private assetCache: AssetCache;
   private urlResolver: ((assetId: string) => string) | null = null;
@@ -39,19 +50,130 @@ export class AudioMixerEngine {
     }
   }
 
-  private getOrCreateTrackGain(trackId: string, volume: number): GainNode {
+  private createTrackNodes(trackId: string, audioSettings?: TrackAudioSettings): TrackNodes {
     if (!this.audioCtx || !this.masterGain) {
       throw new Error('AudioMixerEngine not initialized');
     }
 
-    let gain = this.trackGains.get(trackId);
-    if (!gain) {
-      gain = this.audioCtx.createGain();
-      gain.connect(this.masterGain);
-      this.trackGains.set(trackId, gain);
+    const gain = this.audioCtx.createGain();
+    gain.gain.value = audioSettings?.volume ?? 1;
+
+    // 3-band EQ: lowshelf → peaking → highshelf
+    const eqLow = this.audioCtx.createBiquadFilter();
+    eqLow.type = 'lowshelf';
+    eqLow.frequency.value = audioSettings?.eq?.low.frequency ?? 200;
+    eqLow.gain.value = audioSettings?.eq?.enabled ? (audioSettings.eq.low.gain ?? 0) : 0;
+
+    const eqMid = this.audioCtx.createBiquadFilter();
+    eqMid.type = 'peaking';
+    eqMid.frequency.value = audioSettings?.eq?.mid.frequency ?? 1000;
+    eqMid.Q.value = audioSettings?.eq?.mid.Q ?? 1;
+    eqMid.gain.value = audioSettings?.eq?.enabled ? (audioSettings.eq.mid.gain ?? 0) : 0;
+
+    const eqHigh = this.audioCtx.createBiquadFilter();
+    eqHigh.type = 'highshelf';
+    eqHigh.frequency.value = audioSettings?.eq?.high.frequency ?? 5000;
+    eqHigh.gain.value = audioSettings?.eq?.enabled ? (audioSettings.eq.high.gain ?? 0) : 0;
+
+    // Dynamics compressor
+    const compressor = this.audioCtx.createDynamicsCompressor();
+    if (audioSettings?.compressor?.enabled) {
+      compressor.threshold.value = audioSettings.compressor.threshold;
+      compressor.ratio.value = audioSettings.compressor.ratio;
+      compressor.attack.value = audioSettings.compressor.attack;
+      compressor.release.value = audioSettings.compressor.release;
+      compressor.knee.value = audioSettings.compressor.knee;
+    } else {
+      // Passthrough: threshold 0 means no compression
+      compressor.threshold.value = 0;
+      compressor.ratio.value = 1;
     }
-    gain.gain.value = volume;
-    return gain;
+
+    // Stereo panner
+    const panner = this.audioCtx.createStereoPanner();
+    panner.pan.value = audioSettings?.pan ?? 0;
+
+    // Analyser for level metering
+    const analyser = this.audioCtx.createAnalyser();
+    analyser.fftSize = 256;
+    analyser.smoothingTimeConstant = 0.8;
+
+    // Connect chain: eqLow → eqMid → eqHigh → compressor → panner → gain → analyser → masterGain
+    eqLow.connect(eqMid);
+    eqMid.connect(eqHigh);
+    eqHigh.connect(compressor);
+    compressor.connect(panner);
+    panner.connect(gain);
+    gain.connect(analyser);
+    analyser.connect(this.masterGain);
+
+    const nodes: TrackNodes = { gain, eqLow, eqMid, eqHigh, compressor, panner, analyser };
+    this.trackNodes.set(trackId, nodes);
+    return nodes;
+  }
+
+  private getOrCreateTrackNodes(trackId: string, audioSettings?: TrackAudioSettings): TrackNodes {
+    let nodes = this.trackNodes.get(trackId);
+    if (!nodes) {
+      nodes = this.createTrackNodes(trackId, audioSettings);
+    }
+    return nodes;
+  }
+
+  /**
+   * Update audio settings for a track without recreating nodes.
+   */
+  updateTrackSettings(trackId: string, settings: TrackAudioSettings): void {
+    const nodes = this.trackNodes.get(trackId);
+    if (!nodes) return;
+
+    nodes.gain.gain.value = settings.volume;
+    nodes.panner.pan.value = settings.pan;
+
+    // EQ
+    if (settings.eq?.enabled) {
+      nodes.eqLow.gain.value = settings.eq.low.gain;
+      nodes.eqLow.frequency.value = settings.eq.low.frequency;
+      nodes.eqMid.gain.value = settings.eq.mid.gain;
+      nodes.eqMid.frequency.value = settings.eq.mid.frequency;
+      nodes.eqMid.Q.value = settings.eq.mid.Q;
+      nodes.eqHigh.gain.value = settings.eq.high.gain;
+      nodes.eqHigh.frequency.value = settings.eq.high.frequency;
+    } else {
+      nodes.eqLow.gain.value = 0;
+      nodes.eqMid.gain.value = 0;
+      nodes.eqHigh.gain.value = 0;
+    }
+
+    // Compressor
+    if (settings.compressor?.enabled) {
+      nodes.compressor.threshold.value = settings.compressor.threshold;
+      nodes.compressor.ratio.value = settings.compressor.ratio;
+      nodes.compressor.attack.value = settings.compressor.attack;
+      nodes.compressor.release.value = settings.compressor.release;
+      nodes.compressor.knee.value = settings.compressor.knee;
+    } else {
+      nodes.compressor.threshold.value = 0;
+      nodes.compressor.ratio.value = 1;
+    }
+  }
+
+  /**
+   * Get current RMS audio level for a track (0–1).
+   */
+  getTrackLevel(trackId: string): number {
+    const nodes = this.trackNodes.get(trackId);
+    if (!nodes) return 0;
+
+    const dataArray = new Uint8Array(nodes.analyser.frequencyBinCount);
+    nodes.analyser.getByteTimeDomainData(dataArray);
+
+    let sumOfSquares = 0;
+    for (let i = 0; i < dataArray.length; i++) {
+      const normalized = (dataArray[i] - 128) / 128;
+      sumOfSquares += normalized * normalized;
+    }
+    return Math.sqrt(sumOfSquares / dataArray.length);
   }
 
   private async getAudioBuffer(assetId: string): Promise<AudioBuffer | null> {
@@ -131,7 +253,11 @@ export class AudioMixerEngine {
       const hasAudio = ['video', 'audio', 'music', 'sfx'].includes(track.type);
       if (!hasAudio) continue;
 
-      const trackGain = this.getOrCreateTrackGain(track.id, track.volume);
+      const trackNodes = this.getOrCreateTrackNodes(track.id, track.audioSettings);
+      // Sync settings each time playback is scheduled
+      if (track.audioSettings) {
+        this.updateTrackSettings(track.id, track.audioSettings);
+      }
 
       for (const clip of track.clips) {
         // Skip clips that have already ended
@@ -140,7 +266,7 @@ export class AudioMixerEngine {
         const buffer = await this.getAudioBuffer(clip.assetId);
         if (!buffer) continue;
 
-        this.scheduleClip(clip, timeMs, buffer, trackGain);
+        this.scheduleClip(clip, timeMs, buffer, trackNodes);
       }
     }
   }
@@ -149,7 +275,7 @@ export class AudioMixerEngine {
     clip: RenderableClip,
     currentTimeMs: number,
     buffer: AudioBuffer,
-    trackGain: GainNode,
+    trackNodes: TrackNodes,
   ): void {
     if (!this.audioCtx) return;
 
@@ -158,7 +284,8 @@ export class AudioMixerEngine {
 
     const clipGain = this.audioCtx.createGain();
     source.connect(clipGain);
-    clipGain.connect(trackGain);
+    // Connect clipGain to the first node in the track chain (eqLow)
+    clipGain.connect(trackNodes.eqLow);
 
     // Calculate scheduling parameters
     const clipStartDelay = Math.max(0, clip.startTime - currentTimeMs) / 1000;
@@ -219,7 +346,17 @@ export class AudioMixerEngine {
 
   dispose(): void {
     this.stopAll();
-    this.trackGains.clear();
+    // Disconnect all track node chains
+    for (const nodes of this.trackNodes.values()) {
+      nodes.eqLow.disconnect();
+      nodes.eqMid.disconnect();
+      nodes.eqHigh.disconnect();
+      nodes.compressor.disconnect();
+      nodes.panner.disconnect();
+      nodes.gain.disconnect();
+      nodes.analyser.disconnect();
+    }
+    this.trackNodes.clear();
     this.preloadedAudio.clear();
     if (this.audioCtx?.state !== 'closed') {
       this.audioCtx?.close();

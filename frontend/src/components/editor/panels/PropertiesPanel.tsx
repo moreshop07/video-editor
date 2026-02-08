@@ -2,8 +2,8 @@ import React, { useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTimelineStore, type Clip, type Track } from '@/store/timelineStore';
 import { getEffectDefinition } from '@/effects/effectDefinitions';
-import type { ClipFilters, ChromaKeySettings, ColorGradingSettings } from '@/effects/types';
-import { DEFAULT_CLIP_FILTERS, DEFAULT_CHROMA_KEY, DEFAULT_COLOR_GRADING } from '@/effects/types';
+import type { ClipFilters, ChromaKeySettings, ColorGradingSettings, TrackAudioSettings, EQSettings, CompressorSettings } from '@/effects/types';
+import { DEFAULT_CLIP_FILTERS, DEFAULT_CHROMA_KEY, DEFAULT_COLOR_GRADING, DEFAULT_EQ_SETTINGS, DEFAULT_COMPRESSOR_SETTINGS } from '@/effects/types';
 import { colorGradingPresets } from '@/effects/colorGradingPresets';
 import { parseCubeFile } from '@/effects/lutParser';
 import type { Transition } from '@/types/transitions';
@@ -15,7 +15,7 @@ import { KeyframeEditor } from './KeyframeEditor';
 
 function PropertiesPanelComponent() {
   const { t } = useTranslation();
-  const { tracks, selectedClipId, updateClip, setClipTransition } = useTimelineStore();
+  const { tracks, selectedClipId, updateClip, setClipTransition, updateTrackAudio } = useTimelineStore();
 
   const selectedData = useMemo<{
     clip: Clip;
@@ -683,6 +683,11 @@ function PropertiesPanelComponent() {
         </div>
       )}
 
+      {/* Audio Mixing (Track-level EQ / Compressor / Pan) */}
+      {(isVideoType || isAudioType) && (
+        <AudioMixingSection track={track} />
+      )}
+
       {/* Audio processing */}
       {(isVideoType || isAudioType) && (
         <AudioProcessingPanel assetId={clip.assetId} />
@@ -754,6 +759,172 @@ function PropertySlider({
         onChange={(e) => onChange(Number(e.target.value))}
         className="h-1 w-full cursor-pointer appearance-none rounded bg-white/10 accent-[var(--accent)]"
       />
+    </div>
+  );
+}
+
+// Audio Mixing section for per-track EQ, compressor, pan
+function AudioMixingSection({ track }: { track: Track }) {
+  const { t } = useTranslation();
+  const { updateTrackAudio } = useTimelineStore();
+
+  const audio = track.audioSettings ?? { volume: 1, pan: 0 };
+  const eq = audio.eq ?? DEFAULT_EQ_SETTINGS;
+  const comp = audio.compressor ?? DEFAULT_COMPRESSOR_SETTINGS;
+
+  const update = useCallback(
+    (settings: Partial<TrackAudioSettings>) => updateTrackAudio(track.id, settings),
+    [track.id, updateTrackAudio],
+  );
+
+  const updateEQ = useCallback(
+    (eqUpdate: Partial<EQSettings>) => {
+      update({ eq: { ...eq, ...eqUpdate } });
+    },
+    [eq, update],
+  );
+
+  const updateComp = useCallback(
+    (compUpdate: Partial<CompressorSettings>) => {
+      update({ compressor: { ...comp, ...compUpdate } });
+    },
+    [comp, update],
+  );
+
+  return (
+    <div className="flex flex-col gap-3 border-t border-[var(--color-border)] pt-3">
+      <div className="text-[10px] font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">
+        {t('audioMixing.title')}
+      </div>
+
+      {/* Track Volume */}
+      <PropertySlider
+        label={t('audioMixing.trackVolume')}
+        value={audio.volume}
+        min={0}
+        max={2}
+        step={0.01}
+        onChange={(v) => update({ volume: v })}
+        format={(v) => `${Math.round(v * 100)}%`}
+      />
+
+      {/* Pan */}
+      <PropertySlider
+        label={t('audioMixing.pan')}
+        value={audio.pan}
+        min={-1}
+        max={1}
+        step={0.01}
+        onChange={(v) => update({ pan: v })}
+        format={(v) => v === 0 ? 'C' : v < 0 ? `L${Math.round(Math.abs(v) * 100)}` : `R${Math.round(v * 100)}`}
+      />
+
+      {/* EQ */}
+      <div className="flex items-center justify-between">
+        <div className="text-[10px] font-medium text-[var(--color-text-secondary)]">
+          {t('audioMixing.eq')}
+        </div>
+        <button
+          onClick={() => updateEQ({ enabled: !eq.enabled })}
+          className={`relative h-4 w-8 rounded-full transition-colors ${
+            eq.enabled ? 'bg-[var(--color-primary)]' : 'bg-white/20'
+          }`}
+        >
+          <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition-transform ${
+            eq.enabled ? 'translate-x-4' : 'translate-x-0.5'
+          }`} />
+        </button>
+      </div>
+
+      {eq.enabled && (
+        <>
+          <PropertySlider
+            label={t('audioMixing.eqLow')}
+            value={eq.low.gain}
+            min={-12}
+            max={12}
+            step={0.5}
+            onChange={(v) => updateEQ({ low: { ...eq.low, gain: v } })}
+            format={(v) => `${v > 0 ? '+' : ''}${v}dB`}
+          />
+          <PropertySlider
+            label={t('audioMixing.eqMid')}
+            value={eq.mid.gain}
+            min={-12}
+            max={12}
+            step={0.5}
+            onChange={(v) => updateEQ({ mid: { ...eq.mid, gain: v } })}
+            format={(v) => `${v > 0 ? '+' : ''}${v}dB`}
+          />
+          <PropertySlider
+            label={t('audioMixing.eqHigh')}
+            value={eq.high.gain}
+            min={-12}
+            max={12}
+            step={0.5}
+            onChange={(v) => updateEQ({ high: { ...eq.high, gain: v } })}
+            format={(v) => `${v > 0 ? '+' : ''}${v}dB`}
+          />
+        </>
+      )}
+
+      {/* Compressor */}
+      <div className="flex items-center justify-between">
+        <div className="text-[10px] font-medium text-[var(--color-text-secondary)]">
+          {t('audioMixing.compressor')}
+        </div>
+        <button
+          onClick={() => updateComp({ enabled: !comp.enabled })}
+          className={`relative h-4 w-8 rounded-full transition-colors ${
+            comp.enabled ? 'bg-[var(--color-primary)]' : 'bg-white/20'
+          }`}
+        >
+          <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition-transform ${
+            comp.enabled ? 'translate-x-4' : 'translate-x-0.5'
+          }`} />
+        </button>
+      </div>
+
+      {comp.enabled && (
+        <>
+          <PropertySlider
+            label={t('audioMixing.threshold')}
+            value={comp.threshold}
+            min={-60}
+            max={0}
+            step={1}
+            onChange={(v) => updateComp({ threshold: v })}
+            format={(v) => `${v}dB`}
+          />
+          <PropertySlider
+            label={t('audioMixing.ratio')}
+            value={comp.ratio}
+            min={1}
+            max={20}
+            step={0.5}
+            onChange={(v) => updateComp({ ratio: v })}
+            format={(v) => `${v}:1`}
+          />
+          <PropertySlider
+            label={t('audioMixing.attack')}
+            value={comp.attack}
+            min={0}
+            max={1}
+            step={0.001}
+            onChange={(v) => updateComp({ attack: v })}
+            format={(v) => `${(v * 1000).toFixed(0)}ms`}
+          />
+          <PropertySlider
+            label={t('audioMixing.release')}
+            value={comp.release}
+            min={0}
+            max={1}
+            step={0.01}
+            onChange={(v) => updateComp({ release: v })}
+            format={(v) => `${(v * 1000).toFixed(0)}ms`}
+          />
+        </>
+      )}
     </div>
   );
 }

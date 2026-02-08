@@ -366,5 +366,23 @@
       "name": "照片幻燈片",
       "description": "照片配樂輪播"
     }
+  },
+  "audioMixing": {
+    "title": "音訊混音",
+    "trackVolume": "軌道音量",
+    "pan": "聲道平衡",
+    "eq": "等化器",
+    "eqLow": "低頻",
+    "eqMid": "中頻",
+    "eqHigh": "高頻",
+    "frequency": "頻率",
+    "gain": "增益",
+    "compressor": "壓縮器",
+    "threshold": "閾值",
+    "ratio": "比率",
+    "attack": "起音",
+    "release": "釋音",
+    "knee": "拐點",
+    "meter": "音量表"
   }
 }
