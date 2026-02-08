@@ -1,30 +1,42 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTimelineStore } from '@/store/timelineStore';
-import type { TrackAudioSettings, EQSettings, CompressorSettings } from '@/effects/types';
-import { DEFAULT_EQ_SETTINGS, DEFAULT_COMPRESSOR_SETTINGS } from '@/effects/types';
+import type { TrackAudioSettings, EQSettings, CompressorSettings, DuckingSettings, DuckingPreset } from '@/effects/types';
+import { DEFAULT_EQ_SETTINGS, DEFAULT_COMPRESSOR_SETTINGS, DEFAULT_DUCKING, DUCKING_PRESETS } from '@/effects/types';
 import { VUMeter } from './VUMeter';
 import { PanKnob } from './PanKnob';
 import { EQCurve } from './EQCurve';
 
 const AUDIO_TRACK_TYPES = new Set(['video', 'audio', 'music', 'sfx']);
 
-function ChannelStrip({ trackId, trackName, trackType, muted, audioSettings }: {
+interface AudioTrackInfo {
+  id: string;
+  name: string;
+}
+
+function ChannelStrip({ trackId, trackName, trackType, muted, audioSettings, otherAudioTracks }: {
   trackId: string;
   trackName: string;
   trackType: string;
   muted: boolean;
   audioSettings?: TrackAudioSettings;
+  otherAudioTracks: AudioTrackInfo[];
 }) {
   const { t } = useTranslation();
   const toggleTrackMute = useTimelineStore((s) => s.toggleTrackMute);
   const updateTrackAudio = useTimelineStore((s) => s.updateTrackAudio);
+  const setDucking = useTimelineStore((s) => s.setDucking);
+  const removeDucking = useTimelineStore((s) => s.removeDucking);
+  const setDuckingEnvelope = useTimelineStore((s) => s.setDuckingEnvelope);
   const [showEQ, setShowEQ] = useState(false);
   const [showComp, setShowComp] = useState(false);
+  const [showDuck, setShowDuck] = useState(false);
+  const [isBaking, setIsBaking] = useState(false);
 
   const audio = audioSettings ?? { volume: 1, pan: 0 };
   const eq = audio.eq ?? DEFAULT_EQ_SETTINGS;
   const comp = audio.compressor ?? DEFAULT_COMPRESSOR_SETTINGS;
+  const duck = audio.ducking ?? DEFAULT_DUCKING;
 
   const update = useCallback(
     (settings: Partial<TrackAudioSettings>) => updateTrackAudio(trackId, settings),
@@ -40,6 +52,72 @@ function ChannelStrip({ trackId, trackName, trackType, muted, audioSettings }: {
     (compUpdate: Partial<CompressorSettings>) => update({ compressor: { ...comp, ...compUpdate } }),
     [comp, update],
   );
+
+  const updateDuck = useCallback(
+    (duckUpdate: Partial<DuckingSettings>) => setDucking(trackId, duckUpdate),
+    [trackId, setDucking],
+  );
+
+  const toggleSourceTrack = useCallback(
+    (sourceId: string) => {
+      const current = duck.sourceTrackIds;
+      const next = current.includes(sourceId)
+        ? current.filter((id) => id !== sourceId)
+        : [...current, sourceId];
+      updateDuck({ sourceTrackIds: next });
+    },
+    [duck.sourceTrackIds, updateDuck],
+  );
+
+  const applyPreset = useCallback(
+    (preset: DuckingPreset) => {
+      updateDuck({ ...DUCKING_PRESETS[preset], preset });
+    },
+    [updateDuck],
+  );
+
+  const handleBake = useCallback(async () => {
+    setIsBaking(true);
+    try {
+      // Use DuckingProcessor's generateEnvelope with current store state
+      const { DuckingProcessor } = await import('@/engine/DuckingProcessor');
+      const { AudioMixerEngine } = await import('@/engine/AudioMixerEngine');
+      const state = useTimelineStore.getState();
+      const tracks = state.tracks
+        .filter((t) => AUDIO_TRACK_TYPES.has(t.type))
+        .map((t) => ({
+          id: t.id,
+          type: t.type,
+          clips: t.clips.map((c) => ({
+            id: c.id,
+            assetId: c.assetId,
+            startTime: c.startTime,
+            endTime: c.endTime,
+            trimStart: c.trimStart,
+            duration: c.duration,
+            volume: c.volume ?? 1,
+            opacity: 1,
+            type: c.type,
+          })),
+          muted: t.muted,
+          visible: t.visible,
+          audioSettings: t.audioSettings,
+          volume: t.audioSettings?.volume ?? 1,
+        }));
+
+      const duration = state.getTimelineDuration();
+      const processor = new DuckingProcessor(null as unknown as InstanceType<typeof AudioMixerEngine>);
+      const envelope = processor.generateEnvelope(
+        duck.sourceTrackIds,
+        tracks,
+        duck,
+        duration,
+      );
+      setDuckingEnvelope(trackId, envelope);
+    } finally {
+      setIsBaking(false);
+    }
+  }, [trackId, duck, setDuckingEnvelope]);
 
   const typeIcon = trackType === 'video' ? '🎬' : trackType === 'music' ? '🎵' : trackType === 'sfx' ? '🔊' : '🎤';
 
@@ -219,6 +297,160 @@ function ChannelStrip({ trackId, trackName, trackType, muted, audioSettings }: {
           </div>
         </div>
       )}
+
+      {/* Ducking section */}
+      <div className="flex items-center gap-1.5">
+        <button
+          onClick={() => {
+            if (duck.enabled) {
+              removeDucking(trackId);
+            } else {
+              updateDuck({ enabled: true });
+            }
+          }}
+          className={`rounded px-1.5 py-0.5 text-[9px] font-medium transition-colors ${
+            duck.enabled
+              ? 'bg-[var(--accent)]/20 text-[var(--accent)]'
+              : 'bg-[var(--color-surface)] text-[var(--color-text-secondary)]'
+          }`}
+        >
+          DCK
+        </button>
+        {duck.enabled && (
+          <button
+            onClick={() => setShowDuck(!showDuck)}
+            className="text-[9px] text-[var(--color-text-secondary)] hover:text-[var(--color-text)]"
+          >
+            {duck.sourceTrackIds.length} src / -{Math.round((1 - duck.reduction) * 100)}%
+          </button>
+        )}
+      </div>
+
+      {/* Expanded ducking controls */}
+      {showDuck && duck.enabled && (
+        <div className="flex flex-col gap-1.5 pl-1">
+          {/* Source track selector */}
+          <div className="text-[9px] text-[var(--color-text-secondary)]">
+            {t('ducking.source')}
+          </div>
+          {otherAudioTracks.length === 0 ? (
+            <div className="text-[8px] text-[var(--color-text-secondary)] italic">
+              {t('ducking.noSource')}
+            </div>
+          ) : (
+            otherAudioTracks.map((at) => (
+              <label key={at.id} className="flex items-center gap-1.5 text-[9px] text-[var(--color-text)] cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={duck.sourceTrackIds.includes(at.id)}
+                  onChange={() => toggleSourceTrack(at.id)}
+                  className="h-3 w-3 accent-[var(--accent)]"
+                />
+                {at.name}
+              </label>
+            ))
+          )}
+
+          {/* Preset */}
+          <select
+            value={duck.preset}
+            onChange={(e) => applyPreset(e.target.value as DuckingPreset)}
+            className="rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-1 py-0.5 text-[9px] text-[var(--color-text)] outline-none"
+          >
+            <option value="dialogueOverMusic">{t('ducking.presetDialogue')}</option>
+            <option value="voiceover">{t('ducking.presetVoiceover')}</option>
+            <option value="podcast">{t('ducking.presetPodcast')}</option>
+            <option value="custom">{t('ducking.presetCustom')}</option>
+          </select>
+
+          {/* Threshold */}
+          <div className="flex items-center gap-1.5">
+            <span className="w-8 text-[9px] text-[var(--color-text-secondary)]">Thr</span>
+            <input
+              type="range"
+              min={0}
+              max={0.3}
+              step={0.005}
+              value={duck.threshold}
+              onChange={(e) => updateDuck({ threshold: Number(e.target.value), preset: 'custom' })}
+              className="h-1 flex-1 accent-[var(--accent)]"
+            />
+            <span className="w-10 text-right text-[9px] text-[var(--color-text-secondary)]">
+              {duck.threshold.toFixed(3)}
+            </span>
+          </div>
+
+          {/* Reduction */}
+          <div className="flex items-center gap-1.5">
+            <span className="w-8 text-[9px] text-[var(--color-text-secondary)]">Red</span>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={duck.reduction}
+              onChange={(e) => updateDuck({ reduction: Number(e.target.value), preset: 'custom' })}
+              className="h-1 flex-1 accent-[var(--accent)]"
+            />
+            <span className="w-10 text-right text-[9px] text-[var(--color-text-secondary)]">
+              -{Math.round((1 - duck.reduction) * 100)}%
+            </span>
+          </div>
+
+          {/* Attack */}
+          <div className="flex items-center gap-1.5">
+            <span className="w-8 text-[9px] text-[var(--color-text-secondary)]">Atk</span>
+            <input
+              type="range"
+              min={5}
+              max={500}
+              step={5}
+              value={duck.attackMs}
+              onChange={(e) => updateDuck({ attackMs: Number(e.target.value), preset: 'custom' })}
+              className="h-1 flex-1 accent-[var(--accent)]"
+            />
+            <span className="w-10 text-right text-[9px] text-[var(--color-text-secondary)]">
+              {duck.attackMs}ms
+            </span>
+          </div>
+
+          {/* Release */}
+          <div className="flex items-center gap-1.5">
+            <span className="w-8 text-[9px] text-[var(--color-text-secondary)]">Rel</span>
+            <input
+              type="range"
+              min={50}
+              max={2000}
+              step={10}
+              value={duck.releaseMs}
+              onChange={(e) => updateDuck({ releaseMs: Number(e.target.value), preset: 'custom' })}
+              className="h-1 flex-1 accent-[var(--accent)]"
+            />
+            <span className="w-10 text-right text-[9px] text-[var(--color-text-secondary)]">
+              {duck.releaseMs}ms
+            </span>
+          </div>
+
+          {/* Bake + Clear buttons */}
+          <div className="flex gap-1.5">
+            <button
+              onClick={handleBake}
+              disabled={isBaking || duck.sourceTrackIds.length === 0}
+              className="flex-1 rounded px-2 py-1 text-[9px] bg-[var(--accent)]/20 text-[var(--accent)] hover:bg-[var(--accent)]/30 transition-colors disabled:opacity-40"
+            >
+              {isBaking ? t('ducking.baking') : t('ducking.bake')}
+            </button>
+            {audio.duckingEnvelope && (
+              <button
+                onClick={() => setDuckingEnvelope(trackId, [])}
+                className="rounded px-2 py-1 text-[9px] text-red-400 hover:bg-red-500/10 transition-colors"
+              >
+                {t('ducking.clearEnvelope')}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -251,6 +483,9 @@ function AudioMixerPanelComponent() {
             trackType={track.type}
             muted={track.muted}
             audioSettings={track.audioSettings}
+            otherAudioTracks={audioTracks
+              .filter((t) => t.id !== track.id)
+              .map((t) => ({ id: t.id, name: t.name }))}
           />
         ))
       )}

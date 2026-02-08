@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { temporal } from 'zundo';
-import type { ClipFilters, TrackAudioSettings } from '@/effects/types';
-import { DEFAULT_CLIP_FILTERS } from '@/effects/types';
+import type { ClipFilters, TrackAudioSettings, DuckingSettings, DuckingEnvelope } from '@/effects/types';
+import { DEFAULT_CLIP_FILTERS, DEFAULT_DUCKING } from '@/effects/types';
 import type { Transition } from '@/types/transitions';
 import type { KeyframeTracks, AnimatableProperty } from '@/types/keyframes';
 import type { PipBorder } from '@/engine/types';
@@ -73,6 +73,15 @@ export function applyRemoteOp(opType: string, payload: Record<string, unknown>):
         payload.markerId as string,
         payload.updates as Partial<Omit<Marker, 'id'>>,
       );
+      break;
+    case 'set_ducking':
+      state.setDucking(
+        payload.trackId as string,
+        payload.settings as Partial<DuckingSettings>,
+      );
+      break;
+    case 'remove_ducking':
+      state.removeDucking(payload.trackId as string);
       break;
   }
   _suppressBroadcast = false;
@@ -320,6 +329,11 @@ interface TimelineState {
   toggleTrackVisibility: (trackId: string) => void;
   updateTrackAudio: (trackId: string, settings: Partial<TrackAudioSettings>) => void;
 
+  // Ducking operations
+  setDucking: (trackId: string, settings: Partial<DuckingSettings>) => void;
+  removeDucking: (trackId: string) => void;
+  setDuckingEnvelope: (trackId: string, envelope: DuckingEnvelope) => void;
+
   // Clip operations
   addClip: (trackId: string, clip: Omit<Clip, 'trackId'>) => void;
   removeClip: (trackId: string, clipId: string) => void;
@@ -471,7 +485,25 @@ export const useTimelineStore = create<TimelineState>()(
 
       removeTrack: (trackId) => {
         set((state) => ({
-          tracks: state.tracks.filter((t) => t.id !== trackId),
+          tracks: state.tracks
+            .filter((t) => t.id !== trackId)
+            .map((t) => {
+              // Clean up removed track from ducking sourceTrackIds
+              const ducking = t.audioSettings?.ducking;
+              if (ducking?.sourceTrackIds.includes(trackId)) {
+                return {
+                  ...t,
+                  audioSettings: {
+                    ...t.audioSettings!,
+                    ducking: {
+                      ...ducking,
+                      sourceTrackIds: ducking.sourceTrackIds.filter((id) => id !== trackId),
+                    },
+                  },
+                };
+              }
+              return t;
+            }),
         }));
         broadcast('remove_track', { trackId });
       },
@@ -504,6 +536,52 @@ export const useTimelineStore = create<TimelineState>()(
           tracks: state.tracks.map((t) =>
             t.id === trackId
               ? { ...t, audioSettings: { ...(t.audioSettings ?? { volume: 1, pan: 0 }), ...settings } }
+              : t
+          ),
+        })),
+
+      setDucking: (trackId, settings) => {
+        set((state) => ({
+          tracks: state.tracks.map((t) =>
+            t.id === trackId
+              ? {
+                  ...t,
+                  audioSettings: {
+                    ...(t.audioSettings ?? { volume: 1, pan: 0 }),
+                    ducking: {
+                      ...(t.audioSettings?.ducking ?? DEFAULT_DUCKING),
+                      ...settings,
+                    },
+                  },
+                }
+              : t
+          ),
+        }));
+        broadcast('set_ducking', { trackId, settings });
+      },
+
+      removeDucking: (trackId) => {
+        set((state) => ({
+          tracks: state.tracks.map((t) => {
+            if (t.id !== trackId) return t;
+            const { ducking: _, duckingEnvelope: __, ...rest } = t.audioSettings ?? { volume: 1, pan: 0 };
+            return { ...t, audioSettings: rest as TrackAudioSettings };
+          }),
+        }));
+        broadcast('remove_ducking', { trackId });
+      },
+
+      setDuckingEnvelope: (trackId, envelope) =>
+        set((state) => ({
+          tracks: state.tracks.map((t) =>
+            t.id === trackId
+              ? {
+                  ...t,
+                  audioSettings: {
+                    ...(t.audioSettings ?? { volume: 1, pan: 0 }),
+                    duckingEnvelope: envelope,
+                  },
+                }
               : t
           ),
         })),

@@ -103,9 +103,49 @@ export interface TrackAudioSettings {
   pan: number;        // -1 (left) to 1 (right), default 0
   eq?: EQSettings;
   compressor?: CompressorSettings;
+  ducking?: DuckingSettings;
+  duckingEnvelope?: DuckingEnvelope;
 }
 
 export const DEFAULT_TRACK_AUDIO: TrackAudioSettings = {
   volume: 1,
   pan: 0,
 };
+
+// ── Audio Ducking Types ──
+
+export type DuckingPreset = 'dialogueOverMusic' | 'voiceover' | 'podcast' | 'custom';
+
+export interface DuckingSettings {
+  enabled: boolean;
+  sourceTrackIds: string[];   // Tracks that trigger ducking (e.g., dialogue)
+  threshold: number;          // RMS level 0–1 on source, default 0.05
+  reduction: number;          // Gain multiplier when ducked 0–1, default 0.2
+  attackMs: number;           // Ramp down time in ms, default 50
+  releaseMs: number;          // Ramp up time in ms, default 300
+  preset: DuckingPreset;
+}
+
+export const DEFAULT_DUCKING: DuckingSettings = {
+  enabled: false,
+  sourceTrackIds: [],
+  threshold: 0.05,
+  reduction: 0.2,
+  attackMs: 50,
+  releaseMs: 300,
+  preset: 'dialogueOverMusic',
+};
+
+export const DUCKING_PRESETS: Record<DuckingPreset, Pick<DuckingSettings, 'threshold' | 'reduction' | 'attackMs' | 'releaseMs'>> = {
+  dialogueOverMusic: { threshold: 0.05, reduction: 0.2, attackMs: 50, releaseMs: 300 },
+  voiceover:         { threshold: 0.03, reduction: 0.15, attackMs: 30, releaseMs: 500 },
+  podcast:           { threshold: 0.04, reduction: 0.25, attackMs: 40, releaseMs: 400 },
+  custom:            { threshold: 0.05, reduction: 0.2, attackMs: 50, releaseMs: 300 },
+};
+
+export interface DuckingEnvelopePoint {
+  timeMs: number;
+  gain: number;   // 0–1, where 1 = no reduction, reduction value = fully ducked
+}
+
+export type DuckingEnvelope = DuckingEnvelopePoint[];

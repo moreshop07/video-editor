@@ -612,6 +612,24 @@
     "peak": "峰值",
     "noTracks": "無音訊軌道"
   },
+  "ducking": {
+    "title": "音量閃避",
+    "source": "來源軌道",
+    "noSource": "未選擇來源軌道",
+    "threshold": "閾值",
+    "reduction": "降低量",
+    "attack": "起音",
+    "release": "釋音",
+    "preset": "預設",
+    "presetDialogue": "對話蓋音樂",
+    "presetVoiceover": "旁白",
+    "presetPodcast": "Podcast",
+    "presetCustom": "自訂",
+    "bake": "烘焙包絡線",
+    "baking": "分析中...",
+    "bakeComplete": "已產生包絡線",
+    "clearEnvelope": "清除包絡線"
+  },
   "multiSelect": {
     "nClipsSelected": "已選取 {{count}} 個片段",
     "deleteAll": "全部刪除",

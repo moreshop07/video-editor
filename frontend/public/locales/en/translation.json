@@ -612,6 +612,24 @@
     "peak": "Peak",
     "noTracks": "No audio tracks"
   },
+  "ducking": {
+    "title": "Ducking",
+    "source": "Source Tracks",
+    "noSource": "No source tracks selected",
+    "threshold": "Threshold",
+    "reduction": "Reduction",
+    "attack": "Attack",
+    "release": "Release",
+    "preset": "Preset",
+    "presetDialogue": "Dialogue over Music",
+    "presetVoiceover": "Voiceover",
+    "presetPodcast": "Podcast",
+    "presetCustom": "Custom",
+    "bake": "Bake Envelope",
+    "baking": "Baking...",
+    "bakeComplete": "Envelope generated",
+    "clearEnvelope": "Clear Envelope"
+  },
   "multiSelect": {
     "nClipsSelected": "{{count}} clips selected",
     "deleteAll": "Delete All",

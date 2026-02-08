@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTimelineStore, Track as TrackType } from '@/store/timelineStore';
 import { useTrackRegistry } from './TrackRegistry';
 import Clip from './Clip';
+import { DuckingEnvelopeOverlay } from '@/components/audio/DuckingEnvelopeOverlay';
 
 interface TrackProps {
   track: TrackType;
@@ -114,6 +115,17 @@ function TrackComponent({ track, pxPerMs, isDragTarget, viewportWidth }: TrackPr
       {visibleClips.map((clip) => (
         <Clip key={clip.id} clip={clip} trackId={track.id} pxPerMs={pxPerMs} trackLocked={track.locked} />
       ))}
+
+      {/* Ducking envelope overlay */}
+      {track.audioSettings?.duckingEnvelope?.length ? (
+        <DuckingEnvelopeOverlay
+          envelope={track.audioSettings.duckingEnvelope}
+          pxPerMs={pxPerMs}
+          trackHeight={track.height}
+          scrollX={scrollX}
+          viewportWidth={viewportWidth ?? 0}
+        />
+      ) : null}
     </div>
   );
 }
@@ -125,6 +137,7 @@ export default React.memo(TrackComponent, (prev, next) => {
     prev.track.muted === next.track.muted &&
     prev.track.locked === next.track.locked &&
     prev.track.height === next.track.height &&
+    prev.track.audioSettings?.duckingEnvelope === next.track.audioSettings?.duckingEnvelope &&
     prev.pxPerMs === next.pxPerMs &&
     prev.viewportWidth === next.viewportWidth
   );

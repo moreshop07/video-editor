@@ -9,6 +9,7 @@ interface ActiveSource {
 
 interface TrackNodes {
   gain: GainNode;
+  duckingGain: GainNode;
   eqLow: BiquadFilterNode;
   eqMid: BiquadFilterNode;
   eqHigh: BiquadFilterNode;
@@ -93,21 +94,26 @@ export class AudioMixerEngine {
     const panner = this.audioCtx.createStereoPanner();
     panner.pan.value = audioSettings?.pan ?? 0;
 
+    // Ducking gain node (controlled by DuckingProcessor)
+    const duckingGain = this.audioCtx.createGain();
+    duckingGain.gain.value = 1; // No ducking by default
+
     // Analyser for level metering
     const analyser = this.audioCtx.createAnalyser();
     analyser.fftSize = 256;
     analyser.smoothingTimeConstant = 0.8;
 
-    // Connect chain: eqLow → eqMid → eqHigh → compressor → panner → gain → analyser → masterGain
+    // Connect chain: eqLow → eqMid → eqHigh → compressor → panner → gain → duckingGain → analyser → masterGain
     eqLow.connect(eqMid);
     eqMid.connect(eqHigh);
     eqHigh.connect(compressor);
     compressor.connect(panner);
     panner.connect(gain);
-    gain.connect(analyser);
+    gain.connect(duckingGain);
+    duckingGain.connect(analyser);
     analyser.connect(this.masterGain);
 
-    const nodes: TrackNodes = { gain, eqLow, eqMid, eqHigh, compressor, panner, analyser };
+    const nodes: TrackNodes = { gain, duckingGain, eqLow, eqMid, eqHigh, compressor, panner, analyser };
     this.trackNodes.set(trackId, nodes);
     return nodes;
   }
@@ -174,6 +180,43 @@ export class AudioMixerEngine {
       sumOfSquares += normalized * normalized;
     }
     return Math.sqrt(sumOfSquares / dataArray.length);
+  }
+
+  /**
+   * Set the ducking gain for a track (called by DuckingProcessor).
+   */
+  setTrackDuckingGain(trackId: string, gain: number): void {
+    const nodes = this.trackNodes.get(trackId);
+    if (!nodes || !this.audioCtx) return;
+    nodes.duckingGain.gain.setTargetAtTime(gain, this.audioCtx.currentTime, 0.01);
+  }
+
+  /**
+   * Schedule baked ducking envelope on a track's duckingGain node.
+   */
+  scheduleDuckingEnvelope(trackId: string, envelope: Array<{ timeMs: number; gain: number }>, startTimeMs: number): void {
+    const nodes = this.trackNodes.get(trackId);
+    if (!nodes || !this.audioCtx) return;
+
+    const audioNow = this.audioCtx.currentTime;
+    const duckGain = nodes.duckingGain.gain;
+
+    // Find the initial gain at startTime
+    let initialGain = 1;
+    for (let i = envelope.length - 1; i >= 0; i--) {
+      if (envelope[i].timeMs <= startTimeMs) {
+        initialGain = envelope[i].gain;
+        break;
+      }
+    }
+    duckGain.setValueAtTime(initialGain, audioNow);
+
+    // Schedule future envelope points
+    for (const point of envelope) {
+      if (point.timeMs <= startTimeMs) continue;
+      const offsetSec = (point.timeMs - startTimeMs) / 1000;
+      duckGain.linearRampToValueAtTime(point.gain, audioNow + offsetSec);
+    }
   }
 
   /**
@@ -286,6 +329,11 @@ export class AudioMixerEngine {
 
         this.scheduleClip(clip, timeMs, buffer, trackNodes);
       }
+
+      // Apply baked ducking envelope if present
+      if (track.audioSettings?.duckingEnvelope?.length) {
+        this.scheduleDuckingEnvelope(track.id, track.audioSettings.duckingEnvelope, timeMs);
+      }
     }
   }
 
@@ -372,6 +420,7 @@ export class AudioMixerEngine {
       nodes.compressor.disconnect();
       nodes.panner.disconnect();
       nodes.gain.disconnect();
+      nodes.duckingGain.disconnect();
       nodes.analyser.disconnect();
     }
     this.trackNodes.clear();

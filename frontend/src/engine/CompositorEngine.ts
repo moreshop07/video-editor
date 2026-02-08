@@ -21,6 +21,7 @@ import { ChromaKeyProcessor } from './ChromaKeyProcessor';
 import { ColorGradingProcessor } from './ColorGradingProcessor';
 import { getInterpolatedValue } from '@/utils/keyframeUtils';
 import { ANIMATABLE_PROPERTY_DEFAULTS } from '@/types/keyframes';
+import { DuckingProcessor } from './DuckingProcessor';
 
 interface TransitionClipPair {
   outgoingClip: RenderableClip | null;
@@ -36,6 +37,7 @@ export class CompositorEngine {
   private scheduler: FrameScheduler;
   private decoderPool: IVideoDecoderPool;
   private assetCache: AssetCache;
+  private duckingProcessor: DuckingProcessor;
 
   private tracks: RenderableTrack[] = [];
   private subtitleSegments: SubtitleEntry[] = [];
@@ -70,6 +72,7 @@ export class CompositorEngine {
     this.assetCache = new AssetCache();
     this.compositor = new CanvasCompositor(config.canvas, config.width, config.height);
     this.audioMixer = new AudioMixerEngine(this.assetCache);
+    this.duckingProcessor = new DuckingProcessor(this.audioMixer);
     this.scheduler = new FrameScheduler();
 
     // Feature detect WebCodecs
@@ -140,6 +143,7 @@ export class CompositorEngine {
   setTracks(tracks: RenderableTrack[]): void {
     this.tracks = tracks;
     this.filterCache.clear(); // Clear filter cache when tracks change
+    this.duckingProcessor.setTracks(tracks);
     this.updateDuration();
     this.preloadVisibleAssets();
   }
@@ -297,10 +301,12 @@ export class CompositorEngine {
     const currentTime = this.scheduler.getCurrentTime();
     this.scheduler.play(currentTime);
     await this.audioMixer.schedulePlayback(currentTime, this.tracks);
+    this.duckingProcessor.start();
   }
 
   pause(): void {
     this.scheduler.pause();
+    this.duckingProcessor.stop();
     this.audioMixer.stopAll();
     this.audioMixer.pause();
     if (this.state === 'playing') {
@@ -782,6 +788,10 @@ export class CompositorEngine {
     return this.audioMixer;
   }
 
+  getDuckingProcessor(): DuckingProcessor {
+    return this.duckingProcessor;
+  }
+
   setMasterVolume(volume: number): void {
     this.audioMixer.setMasterVolume(volume);
   }
@@ -802,6 +812,7 @@ export class CompositorEngine {
     // Clear caches
     this.filterCache.clear();
 
+    this.duckingProcessor.stop();
     this.chromaKeyProcessor.dispose();
     this.colorGradingProcessor.dispose();
     this.scheduler.dispose();
