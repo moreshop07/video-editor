@@ -234,6 +234,7 @@ interface TimelineState {
   zoomOut: () => void;
   setScrollX: (x: number) => void;
   setSnapLine: (time: number | null) => void;
+  toggleSnap: () => void;
 
   // Serialization
   loadFromProjectData: (data: ProjectData) => void;
@@ -599,6 +600,7 @@ export const useTimelineStore = create<TimelineState>()(
       zoomOut: () => set((s) => ({ zoom: Math.max(0.1, s.zoom / 1.2) })),
       setScrollX: (x) => set({ scrollX: Math.max(0, x) }),
       setSnapLine: (time) => set({ snapLine: time }),
+      toggleSnap: () => set((s) => ({ snapEnabled: !s.snapEnabled })),
 
       getTimelineDuration: () => {
         const { tracks } = get();

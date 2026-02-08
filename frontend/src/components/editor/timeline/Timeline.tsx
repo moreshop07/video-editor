@@ -37,7 +37,6 @@ export default function Timeline() {
     zoomOut,
     setCurrentTime,
     setScrollX,
-    togglePlay,
     selectClip,
     snapLine,
   } = useTimelineStore();
@@ -115,67 +114,6 @@ export default function Timeline() {
       window.removeEventListener('mouseup', handleMouseUp);
     };
   }, [isSeeking, pxPerMs, scrollX, setCurrentTime]);
-
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      switch (e.key) {
-        case ' ':
-          e.preventDefault();
-          togglePlay();
-          break;
-        case 'ArrowRight':
-          e.preventDefault();
-          setCurrentTime(currentTime + (e.shiftKey ? 5000 : 1000));
-          break;
-        case 'ArrowLeft':
-          e.preventDefault();
-          setCurrentTime(Math.max(0, currentTime - (e.shiftKey ? 5000 : 1000)));
-          break;
-        case 'Delete':
-        case 'Backspace': {
-          const state = useTimelineStore.getState();
-          if (state.selectedClipIds.length > 0) {
-            state.removeSelectedClips();
-          }
-          break;
-        }
-        case 'Escape':
-          useTimelineStore.getState().selectClip(null);
-          break;
-        case 'a':
-        case 'A':
-          if (e.metaKey || e.ctrlKey) {
-            e.preventDefault();
-            const state = useTimelineStore.getState();
-            const allClipIds = state.tracks.flatMap((t) => t.clips.map((c) => c.id));
-            state.selectClips(allClipIds);
-          }
-          break;
-        case 'z':
-        case 'Z':
-          if (e.metaKey || e.ctrlKey) {
-            e.preventDefault();
-            if (e.shiftKey) {
-              useTimelineStore.temporal.getState().redo();
-            } else {
-              useTimelineStore.temporal.getState().undo();
-            }
-          }
-          break;
-        case 'y':
-        case 'Y':
-          if (e.metaKey || e.ctrlKey) {
-            e.preventDefault();
-            useTimelineStore.temporal.getState().redo();
-          }
-          break;
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentTime, togglePlay, setCurrentTime]);
 
   // Auto-scroll to follow playhead
   useEffect(() => {

@@ -9,6 +9,8 @@ import ExportDialog from '@/components/export/ExportDialog';
 import { useProjectStore, useAssetStore, useTimelineStore } from '@/store';
 import { ProjectWebSocket } from '@/api/websocket';
 import { useAutoSave } from '@/hooks/useAutoSave';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import ShortcutHelpDialog from '@/components/editor/ShortcutHelpDialog';
 import type { ProjectData } from '@/store/timelineStore';
 
 export default function EditorPage() {
@@ -21,6 +23,7 @@ export default function EditorPage() {
   const loadFromProjectData = useTimelineStore((s) => s.loadFromProjectData);
 
   const [showExportDialog, setShowExportDialog] = useState(false);
+  const { showHelp, setShowHelp } = useKeyboardShortcuts();
 
   // Auto-save timeline changes via WebSocket
   useAutoSave(wsRef.current);
@@ -88,6 +91,11 @@ export default function EditorPage() {
       <ExportDialog
         open={showExportDialog}
         onClose={() => setShowExportDialog(false)}
+      />
+
+      <ShortcutHelpDialog
+        open={showHelp}
+        onClose={() => setShowHelp(false)}
       />
     </>
   );

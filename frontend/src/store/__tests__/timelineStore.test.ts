@@ -207,6 +207,14 @@ describe('timelineStore', () => {
     expect(data.timeline.tracks[0].clips[0].id).toBe('ser1');
   });
 
+  it('toggleSnap should toggle snapEnabled', () => {
+    expect(getState().snapEnabled).toBe(true);
+    getState().toggleSnap();
+    expect(getState().snapEnabled).toBe(false);
+    getState().toggleSnap();
+    expect(getState().snapEnabled).toBe(true);
+  });
+
   it('loadFromProjectData should hydrate store and reset playback', () => {
     getState().play();
     getState().setCurrentTime(5000);
