@@ -7,6 +7,8 @@ export { VideoDecoderPool } from './VideoDecoderPool';
 export { HTMLVideoPool } from './fallback/HTMLVideoPool';
 export { ExportEngine, getVideoBitrate } from './ExportEngine';
 export type { ExportConfig, ExportProgress, ExportStatus } from './ExportEngine';
+export { WaveformCache } from './WaveformCache';
+export { ThumbnailCache, computeThumbnailTimes } from './ThumbnailCache';
 export type {
   EngineConfig,
   EngineState,

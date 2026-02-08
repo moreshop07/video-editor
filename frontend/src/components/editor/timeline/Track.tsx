@@ -113,7 +113,7 @@ function TrackComponent({ track, pxPerMs, isDragTarget, viewportWidth }: TrackPr
 
       {/* Clips */}
       {visibleClips.map((clip) => (
-        <Clip key={clip.id} clip={clip} trackId={track.id} pxPerMs={pxPerMs} trackLocked={track.locked} />
+        <Clip key={clip.id} clip={clip} trackId={track.id} pxPerMs={pxPerMs} trackLocked={track.locked} trackHeight={track.height} />
       ))}
 
       {/* Ducking envelope overlay */}

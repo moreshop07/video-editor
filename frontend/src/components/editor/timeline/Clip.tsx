@@ -3,12 +3,14 @@ import { useTimelineStore, Clip as ClipType } from '@/store/timelineStore';
 import { collectSnapPoints, findMoveSnapTarget, findSnapTarget } from './snapUtils';
 import { useTrackRegistry } from './TrackRegistry';
 import { findTrackAtY } from './clipDragUtils';
+import { ClipCanvas } from './ClipCanvas';
 
 interface ClipProps {
   clip: ClipType;
   trackId: string;
   pxPerMs: number;
   trackLocked: boolean;
+  trackHeight: number;
 }
 
 function formatTrimTime(ms: number): string {
@@ -30,7 +32,7 @@ const CLIP_COLORS: Record<string, string> = {
   text: '#f97316',
 };
 
-function ClipComponent({ clip, trackId, pxPerMs, trackLocked }: ClipProps) {
+function ClipComponent({ clip, trackId, pxPerMs, trackLocked, trackHeight }: ClipProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isTrimming, setIsTrimming] = useState<'start' | 'end' | null>(null);
@@ -215,6 +217,22 @@ function ClipComponent({ clip, trackId, pxPerMs, trackLocked }: ClipProps) {
         onMouseDown={handleMouseDown}
         onContextMenu={handleContextMenu}
       >
+        {/* Waveform / Thumbnail background */}
+        {(clip.type === 'audio' || clip.type === 'music' || clip.type === 'sfx' || clip.type === 'video') && (
+          <ClipCanvas
+            clipId={clip.id}
+            assetId={clip.assetId}
+            clipType={clip.type}
+            width={clipWidth}
+            height={trackHeight}
+            trimStartMs={clip.trimStart}
+            visibleDurationMs={clip.endTime - clip.startTime}
+            sourceDurationMs={clip.duration}
+            speed={clip.filters?.speed ?? 1}
+            color={color}
+          />
+        )}
+
         {/* Left trim handle */}
         <div
           className="absolute left-0 top-0 bottom-0 w-2 cursor-col-resize hover:bg-white/30 z-10"
@@ -222,8 +240,8 @@ function ClipComponent({ clip, trackId, pxPerMs, trackLocked }: ClipProps) {
         />
 
         {/* Clip content */}
-        <div className="px-2 py-0.5 h-full flex items-center overflow-hidden">
-          <span className="text-[10px] text-white truncate font-medium drop-shadow">
+        <div className="px-2 py-0.5 h-full flex items-center overflow-hidden relative z-[1]">
+          <span className="text-[10px] text-white truncate font-medium drop-shadow bg-black/30 px-1 rounded">
             {clip.name}
           </span>
         </div>
@@ -280,15 +298,18 @@ function ClipComponent({ clip, trackId, pxPerMs, trackLocked }: ClipProps) {
 export default React.memo(ClipComponent, (prev, next) => {
   return (
     prev.clip.id === next.clip.id &&
+    prev.clip.assetId === next.clip.assetId &&
     prev.clip.startTime === next.clip.startTime &&
     prev.clip.endTime === next.clip.endTime &&
     prev.clip.name === next.clip.name &&
     prev.clip.trimStart === next.clip.trimStart &&
     prev.clip.trimEnd === next.clip.trimEnd &&
+    prev.clip.duration === next.clip.duration &&
     prev.clip.filters === next.clip.filters &&
     prev.clip.keyframes === next.clip.keyframes &&
     prev.trackId === next.trackId &&
     prev.pxPerMs === next.pxPerMs &&
-    prev.trackLocked === next.trackLocked
+    prev.trackLocked === next.trackLocked &&
+    prev.trackHeight === next.trackHeight
   );
 });
