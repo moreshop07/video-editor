@@ -648,6 +648,19 @@
     "peak": "峰值",
     "noTracks": "無音訊軌道"
   },
+  "record": {
+    "title": "錄製",
+    "startRecording": "開始螢幕錄製",
+    "stopRecording": "停止錄製",
+    "includeAudio": "包含系統音訊",
+    "recording": "錄製中",
+    "uploading": "上傳中...",
+    "addToTimeline": "加入時間軸",
+    "elapsed": "已錄製",
+    "recordingAdded": "錄製已加入時間軸",
+    "permissionDenied": "螢幕分享權限被拒絕",
+    "notSupported": "此瀏覽器不支援螢幕錄製"
+  },
   "reverb": {
     "mix": "混響混合",
     "decay": "衰減",

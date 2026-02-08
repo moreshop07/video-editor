@@ -648,6 +648,19 @@
     "peak": "Peak",
     "noTracks": "No audio tracks"
   },
+  "record": {
+    "title": "Record",
+    "startRecording": "Start Screen Recording",
+    "stopRecording": "Stop Recording",
+    "includeAudio": "Include System Audio",
+    "recording": "Recording",
+    "uploading": "Uploading...",
+    "addToTimeline": "Add to Timeline",
+    "elapsed": "Elapsed",
+    "recordingAdded": "Recording added to timeline",
+    "permissionDenied": "Screen sharing permission denied",
+    "notSupported": "Screen recording is not supported in this browser"
+  },
   "reverb": {
     "mix": "Reverb Mix",
     "decay": "Decay",

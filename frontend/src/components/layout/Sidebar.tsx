@@ -19,6 +19,7 @@ import TTSPanel from "@/components/tts/TTSPanel";
 import TemplateBrowserPanel from "@/components/templates/TemplateBrowserPanel";
 import CropZoomPanel from "@/components/editor/panels/CropZoomPanel";
 import MarkersPanel from "@/components/editor/panels/MarkersPanel";
+import ScreenRecorderPanel from "@/components/recorder/ScreenRecorderPanel";
 
 type SidebarTab =
   | "assets"
@@ -39,7 +40,8 @@ type SidebarTab =
   | "tts"
   | "templates"
   | "cropZoom"
-  | "markers";
+  | "markers"
+  | "record";
 
 interface TabConfig {
   key: SidebarTab;
@@ -67,6 +69,7 @@ const tabs: TabConfig[] = [
   { key: "templates", labelKey: "template.browser", icon: "M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" },
   { key: "cropZoom", labelKey: "cropZoom.title", icon: "M4 4h7V2H2v9h2V4zm13 0v7h2V2h-9v2h7zM4 20v-7H2v9h9v-2H4zm16 0h-7v2h9v-9h-2v7z" },
   { key: "markers", labelKey: "markers.title", icon: "M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" },
+  { key: "record", labelKey: "record.title", icon: "M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" },
 ];
 
 function SidebarComponent() {
@@ -113,6 +116,8 @@ function SidebarComponent() {
         return <CropZoomPanel />;
       case "markers":
         return <MarkersPanel />;
+      case "record":
+        return <ScreenRecorderPanel />;
       default:
         return null;
     }
