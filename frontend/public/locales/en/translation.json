@@ -367,6 +367,27 @@
       "description": "Photo montage with music"
     }
   },
+  "pip": {
+    "title": "Picture in Picture",
+    "preset": "PiP Preset",
+    "none": "None (Fullscreen)",
+    "topLeft": "Top Left",
+    "topRight": "Top Right",
+    "bottomLeft": "Bottom Left",
+    "bottomRight": "Bottom Right",
+    "centerSmall": "Center Small",
+    "splitLeft": "Split Left",
+    "splitRight": "Split Right",
+    "border": "Border",
+    "borderWidth": "Border Width",
+    "borderColor": "Border Color",
+    "shadow": "Shadow",
+    "easing": "Easing",
+    "linear": "Linear",
+    "easeIn": "Ease In",
+    "easeOut": "Ease Out",
+    "easeInOut": "Ease In-Out"
+  },
   "audioMixing": {
     "title": "Audio Mixing",
     "trackVolume": "Track Volume",

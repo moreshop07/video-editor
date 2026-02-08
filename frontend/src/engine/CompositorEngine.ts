@@ -721,6 +721,7 @@ export class CompositorEngine {
           width: w,
           height: h,
           rotation,
+          border: clip.pipBorder,
         };
       }
 

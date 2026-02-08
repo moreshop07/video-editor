@@ -367,6 +367,27 @@
       "description": "照片配樂輪播"
     }
   },
+  "pip": {
+    "title": "子母畫面",
+    "preset": "PiP 預設",
+    "none": "無（全螢幕）",
+    "topLeft": "左上",
+    "topRight": "右上",
+    "bottomLeft": "左下",
+    "bottomRight": "右下",
+    "centerSmall": "中央縮小",
+    "splitLeft": "左分割",
+    "splitRight": "右分割",
+    "border": "邊框",
+    "borderWidth": "邊框寬度",
+    "borderColor": "邊框顏色",
+    "shadow": "陰影",
+    "easing": "緩動",
+    "linear": "線性",
+    "easeIn": "漸入",
+    "easeOut": "漸出",
+    "easeInOut": "漸入漸出"
+  },
   "audioMixing": {
     "title": "音訊混音",
     "trackVolume": "軌道音量",

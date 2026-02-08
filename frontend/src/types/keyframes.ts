@@ -11,11 +11,13 @@ export type AnimatableProperty =
   | 'rotation'
   | 'opacity';
 
+export type EasingType = 'linear' | 'easeIn' | 'easeOut' | 'easeInOut';
+
 // Single keyframe with time relative to clip start
 export interface Keyframe {
   time: number;  // ms from clip start
   value: number;
-  // Easing could be added later: easing?: 'linear' | 'easeIn' | 'easeOut' | 'easeInOut';
+  easing?: EasingType;  // interpolation curve to next keyframe, default 'linear'
 }
 
 // Keyframes for a single property

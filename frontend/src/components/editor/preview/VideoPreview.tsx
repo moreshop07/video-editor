@@ -111,6 +111,7 @@ export default function VideoPreview() {
         scaleX: c.scaleX,
         scaleY: c.scaleY,
         rotation: c.rotation,
+        pipBorder: c.pipBorder,
       })),
       muted: t.muted,
       visible: t.visible,

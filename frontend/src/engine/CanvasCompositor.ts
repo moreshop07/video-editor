@@ -34,14 +34,55 @@ export class CanvasCompositor {
       this.ctx.filter = layer.filter || 'none';
 
       if (layer.transform) {
-        const { x, y, width, height, rotation } = layer.transform;
+        const { x, y, width, height, rotation, border } = layer.transform;
         if (rotation) {
           this.ctx.save();
           this.ctx.translate(x + width / 2, y + height / 2);
           this.ctx.rotate((rotation * Math.PI) / 180);
+
+          // Border/shadow for PiP
+          if (border && border.width > 0) {
+            if (border.shadow > 0) {
+              this.ctx.shadowColor = 'rgba(0,0,0,0.5)';
+              this.ctx.shadowBlur = border.shadow;
+              this.ctx.shadowOffsetX = 0;
+              this.ctx.shadowOffsetY = 2;
+            }
+            this.ctx.strokeStyle = border.color;
+            this.ctx.lineWidth = border.width;
+            this.ctx.strokeRect(
+              -width / 2 - border.width / 2,
+              -height / 2 - border.width / 2,
+              width + border.width,
+              height + border.width,
+            );
+            this.ctx.shadowColor = 'transparent';
+            this.ctx.shadowBlur = 0;
+          }
+
           this.ctx.drawImage(layer.frame, -width / 2, -height / 2, width, height);
           this.ctx.restore();
         } else {
+          // Border/shadow for PiP (no rotation)
+          if (border && border.width > 0) {
+            this.ctx.save();
+            if (border.shadow > 0) {
+              this.ctx.shadowColor = 'rgba(0,0,0,0.5)';
+              this.ctx.shadowBlur = border.shadow;
+              this.ctx.shadowOffsetX = 0;
+              this.ctx.shadowOffsetY = 2;
+            }
+            this.ctx.strokeStyle = border.color;
+            this.ctx.lineWidth = border.width;
+            this.ctx.strokeRect(
+              x - border.width / 2,
+              y - border.width / 2,
+              width + border.width,
+              height + border.width,
+            );
+            this.ctx.restore();
+          }
+
           this.ctx.drawImage(layer.frame, x, y, width, height);
         }
       } else {

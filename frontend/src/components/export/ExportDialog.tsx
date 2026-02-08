@@ -133,6 +133,7 @@ export default function ExportDialog({
         textAlign: c.textAlign,
         backgroundColor: c.backgroundColor,
         backgroundOpacity: c.backgroundOpacity,
+        pipBorder: c.pipBorder,
       })),
       muted: t.muted,
       visible: t.visible,

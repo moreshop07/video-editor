@@ -2,8 +2,24 @@
  * Keyframe Animation Utilities
  */
 
-import type { Keyframe, KeyframeTracks, AnimatableProperty } from '@/types/keyframes';
+import type { Keyframe, KeyframeTracks, AnimatableProperty, EasingType } from '@/types/keyframes';
 import { ANIMATABLE_PROPERTY_DEFAULTS } from '@/types/keyframes';
+
+/**
+ * Apply easing function to linear progress (0–1).
+ */
+function applyEasing(t: number, easing?: EasingType): number {
+  switch (easing) {
+    case 'easeIn':
+      return t * t;
+    case 'easeOut':
+      return t * (2 - t);
+    case 'easeInOut':
+      return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+    default:
+      return t; // linear
+  }
+}
 
 /**
  * Get interpolated value at a given time
@@ -37,8 +53,8 @@ export function getInterpolatedValue(
     const next = sorted[i + 1];
 
     if (timeMs >= current.time && timeMs <= next.time) {
-      // Linear interpolation
-      const progress = (timeMs - current.time) / (next.time - current.time);
+      const linearProgress = (timeMs - current.time) / (next.time - current.time);
+      const progress = applyEasing(linearProgress, current.easing);
       return current.value + (next.value - current.value) * progress;
     }
   }

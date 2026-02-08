@@ -4,6 +4,7 @@ import type { ClipFilters, TrackAudioSettings } from '@/effects/types';
 import { DEFAULT_CLIP_FILTERS } from '@/effects/types';
 import type { Transition } from '@/types/transitions';
 import type { KeyframeTracks, AnimatableProperty } from '@/types/keyframes';
+import type { PipBorder } from '@/engine/types';
 import { setKeyframe, removeKeyframe } from '@/utils/keyframeUtils';
 
 export interface Clip {
@@ -40,6 +41,9 @@ export interface Clip {
 
   // Keyframe animation
   keyframes?: KeyframeTracks;     // Animated property keyframes
+
+  // PiP border
+  pipBorder?: PipBorder;
 }
 
 export interface Track {
@@ -97,6 +101,7 @@ export interface ProjectData {
         backgroundColor?: string;
         backgroundOpacity?: number;
         keyframes?: KeyframeTracks;
+        pipBorder?: PipBorder;
       }>;
     }>;
     zoom: number;
@@ -154,6 +159,8 @@ export function serializeForSave(state: {
           backgroundOpacity: c.backgroundOpacity,
           // Keyframe animation
           keyframes: c.keyframes,
+          // PiP border
+          pipBorder: c.pipBorder,
         })),
       })),
       zoom: state.zoom,
@@ -569,6 +576,8 @@ export const useTimelineStore = create<TimelineState>()(
               backgroundOpacity: c.backgroundOpacity,
               // Keyframe animation
               keyframes: c.keyframes,
+              // PiP border
+              pipBorder: c.pipBorder,
             })),
           })),
           zoom: data.timeline.zoom ?? 1,

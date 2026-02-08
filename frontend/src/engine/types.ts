@@ -53,6 +53,14 @@ export interface RenderableClip {
   backgroundOpacity?: number;
   // Keyframe animation
   keyframes?: KeyframeTracks;
+  // PiP border
+  pipBorder?: PipBorder;
+}
+
+export interface PipBorder {
+  width: number;
+  color: string;
+  shadow: number;  // drop shadow blur radius, 0 = no shadow
 }
 
 export interface CompositeLayer {
@@ -66,6 +74,7 @@ export interface CompositeLayer {
     width: number;
     height: number;
     rotation?: number;
+    border?: PipBorder;
   };
 }
 

@@ -9,6 +9,8 @@ import { parseCubeFile } from '@/effects/lutParser';
 import type { Transition } from '@/types/transitions';
 import type { AnimatableProperty } from '@/types/keyframes';
 import { ANIMATABLE_PROPERTY_DEFAULTS } from '@/types/keyframes';
+import { pipPresets } from '@/effects/pipPresets';
+import type { PipBorder } from '@/engine/types';
 import AudioProcessingPanel from '@/components/audio/AudioProcessingPanel';
 import { TransitionPicker } from '@/components/editor/timeline/TransitionPicker';
 import { KeyframeEditor } from './KeyframeEditor';
@@ -193,6 +195,99 @@ function PropertiesPanelComponent() {
             onChange={(v) => handleUpdate('trimStart', v)}
             format={(v) => `${(v / 1000).toFixed(1)}s`}
           />
+
+          {/* PiP & Transform */}
+          <div className="text-[10px] font-medium uppercase tracking-wider text-[var(--color-text-secondary)] mt-2">
+            {t('pip.title')}
+          </div>
+
+          {/* PiP preset selector */}
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] text-[var(--color-text-secondary)]">
+              {t('pip.preset')}
+            </label>
+            <select
+              value={
+                pipPresets.find(
+                  (p) =>
+                    p.positionX === clip.positionX &&
+                    p.positionY === clip.positionY &&
+                    p.scaleX === clip.scaleX &&
+                    p.scaleY === clip.scaleY,
+                )?.id ?? ''
+              }
+              onChange={(e) => {
+                if (!e.target.value) {
+                  // Reset to fullscreen
+                  updateClip(track.id, clip.id, {
+                    positionX: undefined,
+                    positionY: undefined,
+                    scaleX: undefined,
+                    scaleY: undefined,
+                  });
+                  return;
+                }
+                const preset = pipPresets.find((p) => p.id === e.target.value);
+                if (preset) {
+                  updateClip(track.id, clip.id, {
+                    positionX: preset.positionX,
+                    positionY: preset.positionY,
+                    scaleX: preset.scaleX,
+                    scaleY: preset.scaleY,
+                  });
+                }
+              }}
+              className="rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1 text-[10px] text-[var(--color-text)] outline-none"
+            >
+              <option value="">{t('pip.none')}</option>
+              {pipPresets.map((p) => (
+                <option key={p.id} value={p.id}>{t(p.labelKey)}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Transform controls */}
+          <PropertySlider
+            label={t('properties.positionX')}
+            value={clip.positionX ?? 0.5}
+            min={0}
+            max={1}
+            step={0.01}
+            onChange={(v) => handleUpdate('positionX', v)}
+            format={(v) => `${Math.round(v * 100)}%`}
+          />
+          <PropertySlider
+            label={t('properties.positionY')}
+            value={clip.positionY ?? 0.5}
+            min={0}
+            max={1}
+            step={0.01}
+            onChange={(v) => handleUpdate('positionY', v)}
+            format={(v) => `${Math.round(v * 100)}%`}
+          />
+          <PropertySlider
+            label={t('properties.scale')}
+            value={clip.scaleX ?? 1}
+            min={0.1}
+            max={3}
+            step={0.05}
+            onChange={(v) => {
+              handleUpdate('scaleX', v);
+              handleUpdate('scaleY', v);
+            }}
+            format={(v) => `${Math.round(v * 100)}%`}
+          />
+          <PropertySlider
+            label={t('properties.rotation')}
+            value={clip.rotation ?? 0}
+            min={0}
+            max={360}
+            step={1}
+            onChange={(v) => handleUpdate('rotation', v)}
+            format={(v) => `${v}°`}
+          />
+          {/* PiP Border */}
+          <PipBorderSection clip={clip} trackId={track.id} />
         </div>
       )}
 
@@ -759,6 +854,78 @@ function PropertySlider({
         onChange={(e) => onChange(Number(e.target.value))}
         className="h-1 w-full cursor-pointer appearance-none rounded bg-white/10 accent-[var(--accent)]"
       />
+    </div>
+  );
+}
+
+// PiP Border controls
+function PipBorderSection({ clip, trackId }: { clip: Clip; trackId: string }) {
+  const { t } = useTranslation();
+  const { updateClip } = useTimelineStore();
+
+  const border: PipBorder = clip.pipBorder ?? { width: 0, color: '#FFFFFF', shadow: 0 };
+  const enabled = border.width > 0;
+
+  const updateBorder = useCallback(
+    (updates: Partial<PipBorder>) => {
+      updateClip(trackId, clip.id, {
+        pipBorder: { ...border, ...updates },
+      });
+    },
+    [trackId, clip.id, border, updateClip],
+  );
+
+  return (
+    <div className="flex flex-col gap-2 mt-1">
+      <div className="flex items-center justify-between">
+        <div className="text-[10px] font-medium text-[var(--color-text-secondary)]">
+          {t('pip.border')}
+        </div>
+        <button
+          onClick={() => updateBorder({ width: enabled ? 0 : 3 })}
+          className={`relative h-4 w-8 rounded-full transition-colors ${
+            enabled ? 'bg-[var(--color-primary)]' : 'bg-white/20'
+          }`}
+        >
+          <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition-transform ${
+            enabled ? 'translate-x-4' : 'translate-x-0.5'
+          }`} />
+        </button>
+      </div>
+
+      {enabled && (
+        <>
+          <PropertySlider
+            label={t('pip.borderWidth')}
+            value={border.width}
+            min={1}
+            max={10}
+            step={1}
+            onChange={(v) => updateBorder({ width: v })}
+            format={(v) => `${v}px`}
+          />
+          <div className="flex items-center gap-2">
+            <label className="text-[10px] text-[var(--color-text-secondary)]">
+              {t('pip.borderColor')}
+            </label>
+            <input
+              type="color"
+              value={border.color}
+              onChange={(e) => updateBorder({ color: e.target.value })}
+              className="h-6 w-10 cursor-pointer rounded border border-[var(--color-border)]"
+            />
+          </div>
+          <PropertySlider
+            label={t('pip.shadow')}
+            value={border.shadow}
+            min={0}
+            max={20}
+            step={1}
+            onChange={(v) => updateBorder({ shadow: v })}
+            format={(v) => `${v}px`}
+          />
+        </>
+      )}
     </div>
   );
 }

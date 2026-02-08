@@ -1,13 +1,14 @@
 import { useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTimelineStore } from '@/store/timelineStore';
-import type { AnimatableProperty, KeyframeTracks } from '@/types/keyframes';
+import type { AnimatableProperty, KeyframeTracks, EasingType } from '@/types/keyframes';
 import {
   ANIMATABLE_PROPERTY_DEFAULTS,
   ANIMATABLE_PROPERTY_INFO,
 } from '@/types/keyframes';
 import {
   hasKeyframeAt,
+  getKeyframeAt,
   getInterpolatedValue,
   getAllKeyframeTimes,
 } from '@/utils/keyframeUtils';
@@ -56,6 +57,8 @@ export function KeyframeEditor({
     [keyframeTracks]
   );
 
+  const updateClip = useTimelineStore((s) => s.updateClip);
+
   // Toggle keyframe at current time for a property
   const handleToggleKeyframe = useCallback(
     (property: AnimatableProperty) => {
@@ -68,6 +71,20 @@ export function KeyframeEditor({
       }
     },
     [clipId, keyframeTracks, clipRelativeTime, currentPropertyValues, setClipKeyframe, removeClipKeyframe]
+  );
+
+  // Update easing for a keyframe at current time
+  const handleEasingChange = useCallback(
+    (property: AnimatableProperty, easing: EasingType) => {
+      if (!keyframeTracks?.[property]) return;
+      const updated = keyframeTracks[property].map((kf) =>
+        Math.abs(kf.time - clipRelativeTime) < 10 ? { ...kf, easing } : kf,
+      );
+      updateClip(trackId, clipId, {
+        keyframes: { ...keyframeTracks, [property]: updated },
+      });
+    },
+    [trackId, clipId, keyframeTracks, clipRelativeTime, updateClip],
   );
 
   // Check if playhead is within clip bounds
@@ -117,6 +134,7 @@ export function KeyframeEditor({
           const hasKeyframe = hasKeyframeAt(keyframeTracks, property, clipRelativeTime);
           const keyframes = keyframeTracks?.[property];
           const keyframeCount = keyframes?.length ?? 0;
+          const currentKeyframe = getKeyframeAt(keyframeTracks, property, clipRelativeTime);
 
           // Get current interpolated value
           const interpolatedValue = keyframes?.length
@@ -130,45 +148,62 @@ export function KeyframeEditor({
           return (
             <div
               key={property}
-              className="flex items-center justify-between gap-2"
+              className="flex flex-col gap-1"
             >
-              <div className="flex items-center gap-2 flex-1">
-                <button
-                  onClick={() => handleToggleKeyframe(property)}
-                  disabled={!isPlayheadInClip}
-                  className={`w-4 h-4 flex items-center justify-center rounded-sm transition-colors ${
-                    hasKeyframe
-                      ? 'bg-[var(--accent)] text-white'
-                      : 'bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--accent)]'
-                  } disabled:opacity-50 disabled:cursor-not-allowed`}
-                  title={
-                    hasKeyframe
-                      ? t('keyframes.removeKeyframe')
-                      : t('keyframes.addKeyframe')
-                  }
-                >
-                  <svg
-                    className="w-2.5 h-2.5"
-                    fill="currentColor"
-                    viewBox="0 0 8 8"
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 flex-1">
+                  <button
+                    onClick={() => handleToggleKeyframe(property)}
+                    disabled={!isPlayheadInClip}
+                    className={`w-4 h-4 flex items-center justify-center rounded-sm transition-colors ${
+                      hasKeyframe
+                        ? 'bg-[var(--accent)] text-white'
+                        : 'bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--accent)]'
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                    title={
+                      hasKeyframe
+                        ? t('keyframes.removeKeyframe')
+                        : t('keyframes.addKeyframe')
+                    }
                   >
-                    <path d="M4 0L7.5 4L4 8L0.5 4L4 0Z" />
-                  </svg>
-                </button>
-                <span className="text-[10px] text-[var(--color-text)]">
-                  {t(info.labelKey)}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] text-[var(--color-text-secondary)] min-w-[40px] text-right">
-                  {info.format(interpolatedValue)}
-                </span>
-                {keyframeCount > 0 && (
-                  <span className="text-[9px] px-1 rounded bg-[var(--accent)]/20 text-[var(--accent)]">
-                    {keyframeCount}
+                    <svg
+                      className="w-2.5 h-2.5"
+                      fill="currentColor"
+                      viewBox="0 0 8 8"
+                    >
+                      <path d="M4 0L7.5 4L4 8L0.5 4L4 0Z" />
+                    </svg>
+                  </button>
+                  <span className="text-[10px] text-[var(--color-text)]">
+                    {t(info.labelKey)}
                   </span>
-                )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-[var(--color-text-secondary)] min-w-[40px] text-right">
+                    {info.format(interpolatedValue)}
+                  </span>
+                  {keyframeCount > 0 && (
+                    <span className="text-[9px] px-1 rounded bg-[var(--accent)]/20 text-[var(--accent)]">
+                      {keyframeCount}
+                    </span>
+                  )}
+                </div>
               </div>
+              {/* Easing selector — shown when a keyframe exists at current time */}
+              {currentKeyframe && (
+                <div className="ml-6">
+                  <select
+                    value={currentKeyframe.easing ?? 'linear'}
+                    onChange={(e) => handleEasingChange(property, e.target.value as EasingType)}
+                    className="rounded border border-[var(--color-border)] bg-[var(--color-surface)] px-1 py-0.5 text-[9px] text-[var(--color-text)] outline-none"
+                  >
+                    <option value="linear">{t('pip.linear')}</option>
+                    <option value="easeIn">{t('pip.easeIn')}</option>
+                    <option value="easeOut">{t('pip.easeOut')}</option>
+                    <option value="easeInOut">{t('pip.easeInOut')}</option>
+                  </select>
+                </div>
+              )}
             </div>
           );
         })}
