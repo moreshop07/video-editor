@@ -6,6 +6,7 @@ import { useTimelineStore } from '@/store/timelineStore';
 import SaveIndicator from '@/components/editor/SaveIndicator';
 import CollaboratorAvatars from '@/components/editor/CollaboratorAvatars';
 import ShareDialog from '@/components/editor/ShareDialog';
+import SaveAsTemplateDialog from '@/components/templates/SaveAsTemplateDialog';
 
 function HeaderComponent() {
   const { t, i18n } = useTranslation();
@@ -14,6 +15,7 @@ function HeaderComponent() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [projectName, setProjectName] = useState(currentProject?.name || t('project.name'));
   const [showShareDialog, setShowShareDialog] = useState(false);
+  const [showSaveAsTemplate, setShowSaveAsTemplate] = useState(false);
 
   // Subscribe to temporal state for undo/redo button states
   const canUndo = useStore(
@@ -124,6 +126,13 @@ function HeaderComponent() {
         </button>
 
         <button
+          onClick={() => setShowSaveAsTemplate(true)}
+          className="rounded border border-[var(--color-border)] px-3 py-1 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-bg)] hover:text-[var(--color-text)]"
+        >
+          {t('template.saveAs')}
+        </button>
+
+        <button
           onClick={() => {
             window.dispatchEvent(new CustomEvent('toggle-export-dialog'));
           }}
@@ -135,6 +144,7 @@ function HeaderComponent() {
     </header>
 
     <ShareDialog open={showShareDialog} onClose={() => setShowShareDialog(false)} />
+    <SaveAsTemplateDialog open={showSaveAsTemplate} onClose={() => setShowSaveAsTemplate(false)} />
     </>
   );
 }

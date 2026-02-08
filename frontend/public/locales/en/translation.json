@@ -387,25 +387,104 @@
   },
   "template": {
     "title": "Start with a Template",
+    "browser": "Templates",
+    "saveAs": "Save as Template",
+    "saveAsTitle": "Save as Template",
+    "saveName": "Template Name",
+    "saveDescription": "Description (optional)",
+    "saveCategory": "Category",
+    "saveSuccess": "Template saved",
+    "saveFailed": "Failed to save template",
+    "myTemplates": "My Templates",
+    "builtIn": "Built-in Templates",
+    "search": "Search templates...",
+    "noResults": "No templates found",
+    "deleteConfirm": "Delete this template?",
+    "deleted": "Template deleted",
+    "replaceConfirm": "Replace current timeline with this template?",
+    "category": {
+      "all": "All",
+      "social": "Social",
+      "professional": "Professional",
+      "creative": "Creative",
+      "marketing": "Marketing",
+      "custom": "Custom"
+    },
     "blank": {
       "name": "Blank Project",
       "description": "Start from scratch"
+    },
+    "socialVertical": {
+      "name": "Social Media (Vertical)",
+      "description": "9:16 for TikTok, Reels, Shorts"
+    },
+    "instagramStory": {
+      "name": "Instagram Story",
+      "description": "9:16 vertical story format"
+    },
+    "tiktok": {
+      "name": "TikTok Video",
+      "description": "Short-form vertical video"
+    },
+    "youtubeShorts": {
+      "name": "YouTube Shorts",
+      "description": "9:16 vertical at 60fps"
+    },
+    "instagramReels": {
+      "name": "Instagram Reels",
+      "description": "Reels 9:16 format"
+    },
+    "corporatePresentation": {
+      "name": "Corporate Presentation",
+      "description": "Professional slides with voiceover"
+    },
+    "newsLowerThird": {
+      "name": "News Lower Third",
+      "description": "News-style lower-third graphics"
+    },
+    "interview": {
+      "name": "Interview",
+      "description": "Two-camera interview setup"
     },
     "youtubeIntro": {
       "name": "YouTube Intro",
       "description": "5-10 second intro"
     },
-    "socialVertical": {
-      "name": "Social Media (Vertical)",
-      "description": "9:16 for TikTok, Reels"
+    "slideshow": {
+      "name": "Photo Slideshow",
+      "description": "Photo montage with music"
+    },
+    "vlog": {
+      "name": "Vlog",
+      "description": "Personal vlog with b-roll"
+    },
+    "travelMontage": {
+      "name": "Travel Montage",
+      "description": "Cinematic travel video"
+    },
+    "recipeVideo": {
+      "name": "Recipe Video",
+      "description": "Square format recipe video"
+    },
+    "tutorial": {
+      "name": "Tutorial",
+      "description": "Screen recording + webcam"
     },
     "productDemo": {
       "name": "Product Demo",
       "description": "Multi-scene showcase"
     },
-    "slideshow": {
-      "name": "Photo Slideshow",
-      "description": "Photo montage with music"
+    "productLaunch": {
+      "name": "Product Launch",
+      "description": "Dramatic product reveal"
+    },
+    "testimonial": {
+      "name": "Testimonial",
+      "description": "Customer testimonial video"
+    },
+    "beforeAfter": {
+      "name": "Before & After",
+      "description": "Side-by-side comparison"
     }
   },
   "pip": {

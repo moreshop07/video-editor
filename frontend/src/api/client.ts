@@ -286,6 +286,27 @@ export const smartEditApi = {
   }) => apiClient.post('/smart-edit/highlight-detect', data),
 };
 
+// ---- Template API ----
+export const templateApi = {
+  list: (category?: string) =>
+    apiClient.get('/templates', { params: category ? { category } : undefined }),
+  get: (id: number) =>
+    apiClient.get(`/templates/${id}`),
+  create: (data: {
+    name: string;
+    description?: string;
+    category?: string;
+    template_data: Record<string, unknown>;
+    width?: number;
+    height?: number;
+    fps?: number;
+  }) => apiClient.post('/templates', data),
+  update: (id: number, data: { name?: string; description?: string; category?: string }) =>
+    apiClient.patch(`/templates/${id}`, data),
+  delete: (id: number) =>
+    apiClient.delete(`/templates/${id}`),
+};
+
 // ---- Collaboration API ----
 export const collaborationApi = {
   invite: (projectId: number, data: { email: string; role: string }) =>

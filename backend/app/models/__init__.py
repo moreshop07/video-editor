@@ -10,6 +10,7 @@ from app.models.sticker import Sticker, StickerPack
 from app.models.subtitle import SubtitleSegment, SubtitleTrack
 from app.models.tts import TTSTrack
 from app.models.user import User
+from app.models.user_template import UserTemplate
 from app.models.voice_profile import VoiceProfile, VoiceProvider
 
 __all__ = [
@@ -30,6 +31,7 @@ __all__ = [
     "SubtitleTrack",
     "TTSTrack",
     "User",
+    "UserTemplate",
     "VideoAnalysis",
     "VoiceProfile",
     "VoiceProvider",
