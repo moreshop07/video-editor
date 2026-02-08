@@ -1,8 +1,8 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTimelineStore } from '@/store/timelineStore';
-import type { TrackAudioSettings, EQSettings, CompressorSettings, DuckingSettings, DuckingPreset } from '@/effects/types';
-import { DEFAULT_EQ_SETTINGS, DEFAULT_COMPRESSOR_SETTINGS, DEFAULT_DUCKING, DUCKING_PRESETS } from '@/effects/types';
+import type { TrackAudioSettings, EQSettings, CompressorSettings, ReverbSettings, DelaySettings, ChorusSettings, DuckingSettings, DuckingPreset } from '@/effects/types';
+import { DEFAULT_EQ_SETTINGS, DEFAULT_COMPRESSOR_SETTINGS, DEFAULT_REVERB, DEFAULT_DELAY, DEFAULT_CHORUS, DEFAULT_DUCKING, DUCKING_PRESETS } from '@/effects/types';
 import { VUMeter } from './VUMeter';
 import { PanKnob } from './PanKnob';
 import { EQCurve } from './EQCurve';
@@ -30,12 +30,18 @@ function ChannelStrip({ trackId, trackName, trackType, muted, audioSettings, oth
   const setDuckingEnvelope = useTimelineStore((s) => s.setDuckingEnvelope);
   const [showEQ, setShowEQ] = useState(false);
   const [showComp, setShowComp] = useState(false);
+  const [showReverb, setShowReverb] = useState(false);
+  const [showDelay, setShowDelay] = useState(false);
+  const [showChorus, setShowChorus] = useState(false);
   const [showDuck, setShowDuck] = useState(false);
   const [isBaking, setIsBaking] = useState(false);
 
   const audio = audioSettings ?? { volume: 1, pan: 0 };
   const eq = audio.eq ?? DEFAULT_EQ_SETTINGS;
   const comp = audio.compressor ?? DEFAULT_COMPRESSOR_SETTINGS;
+  const rev = audio.reverb ?? DEFAULT_REVERB;
+  const dly = audio.delay ?? DEFAULT_DELAY;
+  const cho = audio.chorus ?? DEFAULT_CHORUS;
   const duck = audio.ducking ?? DEFAULT_DUCKING;
 
   const update = useCallback(
@@ -51,6 +57,21 @@ function ChannelStrip({ trackId, trackName, trackType, muted, audioSettings, oth
   const updateComp = useCallback(
     (compUpdate: Partial<CompressorSettings>) => update({ compressor: { ...comp, ...compUpdate } }),
     [comp, update],
+  );
+
+  const updateRev = useCallback(
+    (revUpdate: Partial<ReverbSettings>) => update({ reverb: { ...rev, ...revUpdate } }),
+    [rev, update],
+  );
+
+  const updateDly = useCallback(
+    (dlyUpdate: Partial<DelaySettings>) => update({ delay: { ...dly, ...dlyUpdate } }),
+    [dly, update],
+  );
+
+  const updateCho = useCallback(
+    (choUpdate: Partial<ChorusSettings>) => update({ chorus: { ...cho, ...choUpdate } }),
+    [cho, update],
   );
 
   const updateDuck = useCallback(
@@ -293,6 +314,225 @@ function ChannelStrip({ trackId, trackName, trackType, muted, audioSettings, oth
             />
             <span className="w-10 text-right text-[9px] text-[var(--color-text-secondary)]">
               {(comp.release * 1000).toFixed(0)}ms
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Reverb section */}
+      <div className="flex items-center gap-1.5">
+        <button
+          onClick={() => updateRev({ enabled: !rev.enabled })}
+          className={`rounded px-1.5 py-0.5 text-[9px] font-medium transition-colors ${
+            rev.enabled
+              ? 'bg-[var(--accent)]/20 text-[var(--accent)]'
+              : 'bg-[var(--color-surface)] text-[var(--color-text-secondary)]'
+          }`}
+        >
+          REV
+        </button>
+        {rev.enabled && (
+          <button
+            onClick={() => setShowReverb(!showReverb)}
+            className="text-[9px] text-[var(--color-text-secondary)] hover:text-[var(--color-text)]"
+          >
+            {Math.round(rev.mix * 100)}% / {rev.decay.toFixed(1)}s
+          </button>
+        )}
+      </div>
+
+      {/* Expanded reverb controls */}
+      {showReverb && rev.enabled && (
+        <div className="flex flex-col gap-1 pl-1">
+          <div className="flex items-center gap-1.5">
+            <span className="w-8 text-[9px] text-[var(--color-text-secondary)]">Mix</span>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={rev.mix}
+              onChange={(e) => updateRev({ mix: Number(e.target.value) })}
+              className="h-1 flex-1 accent-[var(--accent)]"
+            />
+            <span className="w-10 text-right text-[9px] text-[var(--color-text-secondary)]">
+              {Math.round(rev.mix * 100)}%
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-8 text-[9px] text-[var(--color-text-secondary)]">{t('reverb.decay')}</span>
+            <input
+              type="range"
+              min={0.1}
+              max={10}
+              step={0.1}
+              value={rev.decay}
+              onChange={(e) => updateRev({ decay: Number(e.target.value) })}
+              className="h-1 flex-1 accent-[var(--accent)]"
+            />
+            <span className="w-10 text-right text-[9px] text-[var(--color-text-secondary)]">
+              {rev.decay.toFixed(1)}s
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-8 text-[9px] text-[var(--color-text-secondary)]">Pre</span>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={1}
+              value={rev.preDelay}
+              onChange={(e) => updateRev({ preDelay: Number(e.target.value) })}
+              className="h-1 flex-1 accent-[var(--accent)]"
+            />
+            <span className="w-10 text-right text-[9px] text-[var(--color-text-secondary)]">
+              {rev.preDelay}ms
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Delay section */}
+      <div className="flex items-center gap-1.5">
+        <button
+          onClick={() => updateDly({ enabled: !dly.enabled })}
+          className={`rounded px-1.5 py-0.5 text-[9px] font-medium transition-colors ${
+            dly.enabled
+              ? 'bg-[var(--accent)]/20 text-[var(--accent)]'
+              : 'bg-[var(--color-surface)] text-[var(--color-text-secondary)]'
+          }`}
+        >
+          DLY
+        </button>
+        {dly.enabled && (
+          <button
+            onClick={() => setShowDelay(!showDelay)}
+            className="text-[9px] text-[var(--color-text-secondary)] hover:text-[var(--color-text)]"
+          >
+            {Math.round(dly.time * 1000)}ms / {Math.round(dly.feedback * 100)}%
+          </button>
+        )}
+      </div>
+
+      {/* Expanded delay controls */}
+      {showDelay && dly.enabled && (
+        <div className="flex flex-col gap-1 pl-1">
+          <div className="flex items-center gap-1.5">
+            <span className="w-8 text-[9px] text-[var(--color-text-secondary)]">Mix</span>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={dly.mix}
+              onChange={(e) => updateDly({ mix: Number(e.target.value) })}
+              className="h-1 flex-1 accent-[var(--accent)]"
+            />
+            <span className="w-10 text-right text-[9px] text-[var(--color-text-secondary)]">
+              {Math.round(dly.mix * 100)}%
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-8 text-[9px] text-[var(--color-text-secondary)]">{t('delay.time')}</span>
+            <input
+              type="range"
+              min={10}
+              max={2000}
+              step={10}
+              value={dly.time * 1000}
+              onChange={(e) => updateDly({ time: Number(e.target.value) / 1000 })}
+              className="h-1 flex-1 accent-[var(--accent)]"
+            />
+            <span className="w-10 text-right text-[9px] text-[var(--color-text-secondary)]">
+              {Math.round(dly.time * 1000)}ms
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-8 text-[9px] text-[var(--color-text-secondary)]">Fdbk</span>
+            <input
+              type="range"
+              min={0}
+              max={0.9}
+              step={0.01}
+              value={dly.feedback}
+              onChange={(e) => updateDly({ feedback: Number(e.target.value) })}
+              className="h-1 flex-1 accent-[var(--accent)]"
+            />
+            <span className="w-10 text-right text-[9px] text-[var(--color-text-secondary)]">
+              {Math.round(dly.feedback * 100)}%
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Chorus section */}
+      <div className="flex items-center gap-1.5">
+        <button
+          onClick={() => updateCho({ enabled: !cho.enabled })}
+          className={`rounded px-1.5 py-0.5 text-[9px] font-medium transition-colors ${
+            cho.enabled
+              ? 'bg-[var(--accent)]/20 text-[var(--accent)]'
+              : 'bg-[var(--color-surface)] text-[var(--color-text-secondary)]'
+          }`}
+        >
+          CHO
+        </button>
+        {cho.enabled && (
+          <button
+            onClick={() => setShowChorus(!showChorus)}
+            className="text-[9px] text-[var(--color-text-secondary)] hover:text-[var(--color-text)]"
+          >
+            {cho.rate.toFixed(1)}Hz / {(cho.depth * 1000).toFixed(0)}ms
+          </button>
+        )}
+      </div>
+
+      {/* Expanded chorus controls */}
+      {showChorus && cho.enabled && (
+        <div className="flex flex-col gap-1 pl-1">
+          <div className="flex items-center gap-1.5">
+            <span className="w-8 text-[9px] text-[var(--color-text-secondary)]">Mix</span>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={cho.mix}
+              onChange={(e) => updateCho({ mix: Number(e.target.value) })}
+              className="h-1 flex-1 accent-[var(--accent)]"
+            />
+            <span className="w-10 text-right text-[9px] text-[var(--color-text-secondary)]">
+              {Math.round(cho.mix * 100)}%
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-8 text-[9px] text-[var(--color-text-secondary)]">{t('chorus.rate')}</span>
+            <input
+              type="range"
+              min={0.1}
+              max={8}
+              step={0.1}
+              value={cho.rate}
+              onChange={(e) => updateCho({ rate: Number(e.target.value) })}
+              className="h-1 flex-1 accent-[var(--accent)]"
+            />
+            <span className="w-10 text-right text-[9px] text-[var(--color-text-secondary)]">
+              {cho.rate.toFixed(1)}Hz
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="w-8 text-[9px] text-[var(--color-text-secondary)]">{t('chorus.depth')}</span>
+            <input
+              type="range"
+              min={1}
+              max={20}
+              step={0.5}
+              value={cho.depth * 1000}
+              onChange={(e) => updateCho({ depth: Number(e.target.value) / 1000 })}
+              className="h-1 flex-1 accent-[var(--accent)]"
+            />
+            <span className="w-10 text-right text-[9px] text-[var(--color-text-secondary)]">
+              {(cho.depth * 1000).toFixed(0)}ms
             </span>
           </div>
         </div>

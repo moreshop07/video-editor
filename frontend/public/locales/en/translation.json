@@ -648,6 +648,21 @@
     "peak": "Peak",
     "noTracks": "No audio tracks"
   },
+  "reverb": {
+    "mix": "Reverb Mix",
+    "decay": "Decay",
+    "preDelay": "Pre-Delay"
+  },
+  "delay": {
+    "mix": "Delay Mix",
+    "time": "Time",
+    "feedback": "Feedback"
+  },
+  "chorus": {
+    "mix": "Chorus Mix",
+    "rate": "Rate",
+    "depth": "Depth"
+  },
   "ducking": {
     "title": "Ducking",
     "source": "Source Tracks",

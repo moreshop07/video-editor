@@ -2,6 +2,7 @@ import type { RenderableTrack, RenderableClip } from './types';
 import type { TrackAudioSettings } from '@/effects/types';
 import { AssetCache } from './AssetCache';
 import { computeSourceTime, getSpeedAtTime } from '@/utils/speedRampUtils';
+import { generateImpulseResponse, clearIRCache } from './impulseResponse';
 
 interface ActiveSource {
   source: AudioBufferSourceNode;
@@ -17,6 +18,28 @@ interface TrackNodes {
   compressor: DynamicsCompressorNode;
   panner: StereoPannerNode;
   analyser: AnalyserNode;
+  // Reverb
+  reverbDry: GainNode;
+  reverbWet: GainNode;
+  reverbConvolver: ConvolverNode;
+  reverbPreDelay: DelayNode;
+  reverbOutput: GainNode;
+  // Delay
+  delayDry: GainNode;
+  delayWet: GainNode;
+  delayNode: DelayNode;
+  delayFeedback: GainNode;
+  delayOutput: GainNode;
+  // Chorus
+  chorusDry: GainNode;
+  chorusWet: GainNode;
+  chorusDelay1: DelayNode;
+  chorusDelay2: DelayNode;
+  chorusLfo1: OscillatorNode;
+  chorusLfo2: OscillatorNode;
+  chorusLfoGain1: GainNode;
+  chorusLfoGain2: GainNode;
+  chorusOutput: GainNode;
 }
 
 export class AudioMixerEngine {
@@ -91,6 +114,119 @@ export class AudioMixerEngine {
       compressor.ratio.value = 1;
     }
 
+    // ── Reverb (wet/dry parallel routing) ──
+    const reverbDry = this.audioCtx.createGain();
+    const reverbWet = this.audioCtx.createGain();
+    const reverbConvolver = this.audioCtx.createConvolver();
+    const reverbPreDelay = this.audioCtx.createDelay(0.1); // max 100ms
+    const reverbOutput = this.audioCtx.createGain();
+
+    const rev = audioSettings?.reverb;
+    if (rev?.enabled) {
+      reverbDry.gain.value = 1 - rev.mix;
+      reverbWet.gain.value = rev.mix;
+      reverbPreDelay.delayTime.value = rev.preDelay / 1000;
+      reverbConvolver.buffer = generateImpulseResponse(this.audioCtx, rev.decay, rev.preDelay);
+    } else {
+      reverbDry.gain.value = 1;
+      reverbWet.gain.value = 0;
+      reverbPreDelay.delayTime.value = 0.01;
+      reverbConvolver.buffer = generateImpulseResponse(this.audioCtx, 2.0, 10);
+    }
+
+    // compressor → reverbDry → reverbOutput
+    // compressor → reverbWet → reverbPreDelay → reverbConvolver → reverbOutput
+    compressor.connect(reverbDry);
+    compressor.connect(reverbWet);
+    reverbDry.connect(reverbOutput);
+    reverbWet.connect(reverbPreDelay);
+    reverbPreDelay.connect(reverbConvolver);
+    reverbConvolver.connect(reverbOutput);
+
+    // ── Delay (wet/dry with feedback) ──
+    const delayDry = this.audioCtx.createGain();
+    const delayWet = this.audioCtx.createGain();
+    const delayNode = this.audioCtx.createDelay(2.0); // max 2s
+    const delayFeedback = this.audioCtx.createGain();
+    const delayOutput = this.audioCtx.createGain();
+
+    const dly = audioSettings?.delay;
+    if (dly?.enabled) {
+      delayDry.gain.value = 1 - dly.mix;
+      delayWet.gain.value = dly.mix;
+      delayNode.delayTime.value = dly.time;
+      delayFeedback.gain.value = dly.feedback;
+    } else {
+      delayDry.gain.value = 1;
+      delayWet.gain.value = 0;
+      delayNode.delayTime.value = 0.3;
+      delayFeedback.gain.value = 0;
+    }
+
+    // reverbOutput → delayDry → delayOutput
+    // reverbOutput → delayWet → delayNode → delayOutput
+    //                             ↑    ↓
+    //                             └── delayFeedback ←┘
+    reverbOutput.connect(delayDry);
+    reverbOutput.connect(delayWet);
+    delayDry.connect(delayOutput);
+    delayWet.connect(delayNode);
+    delayNode.connect(delayOutput);
+    delayNode.connect(delayFeedback);
+    delayFeedback.connect(delayNode);
+
+    // ── Chorus (2-voice modulated delay) ──
+    const chorusDry = this.audioCtx.createGain();
+    const chorusWet = this.audioCtx.createGain();
+    const chorusDelay1 = this.audioCtx.createDelay(0.05); // max 50ms
+    const chorusDelay2 = this.audioCtx.createDelay(0.05);
+    const chorusLfo1 = this.audioCtx.createOscillator();
+    const chorusLfo2 = this.audioCtx.createOscillator();
+    const chorusLfoGain1 = this.audioCtx.createGain();
+    const chorusLfoGain2 = this.audioCtx.createGain();
+    const chorusOutput = this.audioCtx.createGain();
+
+    const cho = audioSettings?.chorus;
+    const choRate = cho?.rate ?? 1.5;
+    const choDepth = cho?.depth ?? 0.005;
+    if (cho?.enabled) {
+      chorusDry.gain.value = 1 - cho.mix;
+      chorusWet.gain.value = cho.mix;
+    } else {
+      chorusDry.gain.value = 1;
+      chorusWet.gain.value = 0;
+    }
+
+    // Base delay for chorus voices (center of modulation)
+    chorusDelay1.delayTime.value = 0.015; // 15ms base
+    chorusDelay2.delayTime.value = 0.017; // 17ms base (slight offset for richness)
+
+    // LFO → modulates delayTime
+    chorusLfo1.type = 'sine';
+    chorusLfo1.frequency.value = choRate;
+    chorusLfo2.type = 'sine';
+    chorusLfo2.frequency.value = choRate * 1.1; // Slight detune for stereo width
+    chorusLfoGain1.gain.value = choDepth;
+    chorusLfoGain2.gain.value = choDepth;
+
+    chorusLfo1.connect(chorusLfoGain1);
+    chorusLfoGain1.connect(chorusDelay1.delayTime);
+    chorusLfo2.connect(chorusLfoGain2);
+    chorusLfoGain2.connect(chorusDelay2.delayTime);
+    chorusLfo1.start();
+    chorusLfo2.start();
+
+    // delayOutput → chorusDry → chorusOutput
+    // delayOutput → chorusWet → chorusDelay1 → chorusOutput
+    // delayOutput → chorusWet → chorusDelay2 → chorusOutput
+    delayOutput.connect(chorusDry);
+    delayOutput.connect(chorusWet);
+    chorusDry.connect(chorusOutput);
+    chorusWet.connect(chorusDelay1);
+    chorusWet.connect(chorusDelay2);
+    chorusDelay1.connect(chorusOutput);
+    chorusDelay2.connect(chorusOutput);
+
     // Stereo panner
     const panner = this.audioCtx.createStereoPanner();
     panner.pan.value = audioSettings?.pan ?? 0;
@@ -104,17 +240,24 @@ export class AudioMixerEngine {
     analyser.fftSize = 256;
     analyser.smoothingTimeConstant = 0.8;
 
-    // Connect chain: eqLow → eqMid → eqHigh → compressor → panner → gain → duckingGain → analyser → masterGain
+    // Connect final chain: chorusOutput → panner → gain → duckingGain → analyser → masterGain
     eqLow.connect(eqMid);
     eqMid.connect(eqHigh);
     eqHigh.connect(compressor);
-    compressor.connect(panner);
+    // compressor → [reverb] → [delay] → [chorus] already wired above
+    chorusOutput.connect(panner);
     panner.connect(gain);
     gain.connect(duckingGain);
     duckingGain.connect(analyser);
     analyser.connect(this.masterGain);
 
-    const nodes: TrackNodes = { gain, duckingGain, eqLow, eqMid, eqHigh, compressor, panner, analyser };
+    const nodes: TrackNodes = {
+      gain, duckingGain, eqLow, eqMid, eqHigh, compressor, panner, analyser,
+      reverbDry, reverbWet, reverbConvolver, reverbPreDelay, reverbOutput,
+      delayDry, delayWet, delayNode, delayFeedback, delayOutput,
+      chorusDry, chorusWet, chorusDelay1, chorusDelay2,
+      chorusLfo1, chorusLfo2, chorusLfoGain1, chorusLfoGain2, chorusOutput,
+    };
     this.trackNodes.set(trackId, nodes);
     return nodes;
   }
@@ -162,6 +305,47 @@ export class AudioMixerEngine {
     } else {
       nodes.compressor.threshold.value = 0;
       nodes.compressor.ratio.value = 1;
+    }
+
+    // Reverb
+    const rev = settings.reverb;
+    if (rev?.enabled) {
+      nodes.reverbDry.gain.value = 1 - rev.mix;
+      nodes.reverbWet.gain.value = rev.mix;
+      nodes.reverbPreDelay.delayTime.value = rev.preDelay / 1000;
+      if (this.audioCtx) {
+        nodes.reverbConvolver.buffer = generateImpulseResponse(this.audioCtx, rev.decay, rev.preDelay);
+      }
+    } else {
+      nodes.reverbDry.gain.value = 1;
+      nodes.reverbWet.gain.value = 0;
+    }
+
+    // Delay
+    const dly = settings.delay;
+    if (dly?.enabled) {
+      nodes.delayDry.gain.value = 1 - dly.mix;
+      nodes.delayWet.gain.value = dly.mix;
+      nodes.delayNode.delayTime.value = dly.time;
+      nodes.delayFeedback.gain.value = dly.feedback;
+    } else {
+      nodes.delayDry.gain.value = 1;
+      nodes.delayWet.gain.value = 0;
+      nodes.delayFeedback.gain.value = 0;
+    }
+
+    // Chorus
+    const cho = settings.chorus;
+    if (cho?.enabled) {
+      nodes.chorusDry.gain.value = 1 - cho.mix;
+      nodes.chorusWet.gain.value = cho.mix;
+      nodes.chorusLfo1.frequency.value = cho.rate;
+      nodes.chorusLfo2.frequency.value = cho.rate * 1.1;
+      nodes.chorusLfoGain1.gain.value = cho.depth;
+      nodes.chorusLfoGain2.gain.value = cho.depth;
+    } else {
+      nodes.chorusDry.gain.value = 1;
+      nodes.chorusWet.gain.value = 0;
     }
   }
 
@@ -460,6 +644,31 @@ export class AudioMixerEngine {
       nodes.eqMid.disconnect();
       nodes.eqHigh.disconnect();
       nodes.compressor.disconnect();
+      // Reverb
+      nodes.reverbDry.disconnect();
+      nodes.reverbWet.disconnect();
+      nodes.reverbPreDelay.disconnect();
+      nodes.reverbConvolver.disconnect();
+      nodes.reverbOutput.disconnect();
+      // Delay
+      nodes.delayDry.disconnect();
+      nodes.delayWet.disconnect();
+      nodes.delayNode.disconnect();
+      nodes.delayFeedback.disconnect();
+      nodes.delayOutput.disconnect();
+      // Chorus
+      nodes.chorusDry.disconnect();
+      nodes.chorusWet.disconnect();
+      nodes.chorusDelay1.disconnect();
+      nodes.chorusDelay2.disconnect();
+      try { nodes.chorusLfo1.stop(); } catch { /* already stopped */ }
+      try { nodes.chorusLfo2.stop(); } catch { /* already stopped */ }
+      nodes.chorusLfo1.disconnect();
+      nodes.chorusLfo2.disconnect();
+      nodes.chorusLfoGain1.disconnect();
+      nodes.chorusLfoGain2.disconnect();
+      nodes.chorusOutput.disconnect();
+      // Original tail
       nodes.panner.disconnect();
       nodes.gain.disconnect();
       nodes.duckingGain.disconnect();
@@ -467,6 +676,7 @@ export class AudioMixerEngine {
     }
     this.trackNodes.clear();
     this.preloadedAudio.clear();
+    clearIRCache();
     if (this.audioCtx?.state !== 'closed') {
       this.audioCtx?.close();
     }

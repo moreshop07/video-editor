@@ -121,11 +121,58 @@ export const DEFAULT_COMPRESSOR_SETTINGS: CompressorSettings = {
   knee: 30,
 };
 
+// ── Audio Effects Types (Reverb / Delay / Chorus) ──
+
+export interface ReverbSettings {
+  enabled: boolean;
+  mix: number;       // 0-1 wet/dry (0=dry, 1=wet), default 0.3
+  decay: number;     // 0.1-10 seconds (reverb tail), default 2.0
+  preDelay: number;  // 0-100 ms, default 10
+}
+
+export const DEFAULT_REVERB: ReverbSettings = {
+  enabled: false,
+  mix: 0.3,
+  decay: 2.0,
+  preDelay: 10,
+};
+
+export interface DelaySettings {
+  enabled: boolean;
+  mix: number;       // 0-1 wet/dry, default 0.3
+  time: number;      // 0.01-2 seconds, default 0.3
+  feedback: number;  // 0-0.9, default 0.4
+}
+
+export const DEFAULT_DELAY: DelaySettings = {
+  enabled: false,
+  mix: 0.3,
+  time: 0.3,
+  feedback: 0.4,
+};
+
+export interface ChorusSettings {
+  enabled: boolean;
+  mix: number;       // 0-1 wet/dry, default 0.5
+  rate: number;      // 0.1-8 Hz (LFO speed), default 1.5
+  depth: number;     // 0.001-0.02 seconds (modulation depth), default 0.005
+}
+
+export const DEFAULT_CHORUS: ChorusSettings = {
+  enabled: false,
+  mix: 0.5,
+  rate: 1.5,
+  depth: 0.005,
+};
+
 export interface TrackAudioSettings {
   volume: number;     // 0–2, default 1
   pan: number;        // -1 (left) to 1 (right), default 0
   eq?: EQSettings;
   compressor?: CompressorSettings;
+  reverb?: ReverbSettings;
+  delay?: DelaySettings;
+  chorus?: ChorusSettings;
   ducking?: DuckingSettings;
   duckingEnvelope?: DuckingEnvelope;
 }

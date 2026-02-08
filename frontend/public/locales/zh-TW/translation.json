@@ -648,6 +648,21 @@
     "peak": "峰值",
     "noTracks": "無音訊軌道"
   },
+  "reverb": {
+    "mix": "混響混合",
+    "decay": "衰減",
+    "preDelay": "預延遲"
+  },
+  "delay": {
+    "mix": "延遲混合",
+    "time": "延遲時間",
+    "feedback": "回授"
+  },
+  "chorus": {
+    "mix": "合唱混合",
+    "rate": "速率",
+    "depth": "深度"
+  },
   "ducking": {
     "title": "音量閃避",
     "source": "來源軌道",
