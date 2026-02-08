@@ -273,6 +273,13 @@
     "zoomOut": "Zoom Out",
     "duration": "Duration"
   },
+  "chromaKey": {
+    "title": "Chroma Key",
+    "keyColor": "Key Color",
+    "similarity": "Similarity",
+    "smoothness": "Edge Smoothness",
+    "despill": "Despill Strength"
+  },
   "download": {
     "title": "Download",
     "urlPlaceholder": "Paste video URL (YouTube, TikTok, Instagram...)",

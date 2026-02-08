@@ -17,6 +17,7 @@ import { HTMLVideoPool } from './fallback/HTMLVideoPool';
 import { buildCanvasFilterString } from '@/effects/buildCanvasFilter';
 import { TransitionRenderer } from './TransitionRenderer';
 import { TextRenderer } from './TextRenderer';
+import { ChromaKeyProcessor } from './ChromaKeyProcessor';
 import { getInterpolatedValue } from '@/utils/keyframeUtils';
 import { ANIMATABLE_PROPERTY_DEFAULTS } from '@/types/keyframes';
 
@@ -51,6 +52,9 @@ export class CompositorEngine {
   // ImageBitmap cleanup tracking
   private pendingBitmaps: ImageBitmap[] = [];
 
+  // Chroma key processor
+  private chromaKeyProcessor: ChromaKeyProcessor;
+
   // Callbacks
   onTimeUpdate: ((timeMs: number) => void) | null = null;
   onStateChange: ((state: EngineState) => void) | null = null;
@@ -69,6 +73,8 @@ export class CompositorEngine {
     } else {
       this.decoderPool = new HTMLVideoPool();
     }
+
+    this.chromaKeyProcessor = new ChromaKeyProcessor(config.width, config.height);
   }
 
   async init(): Promise<void> {
@@ -665,6 +671,19 @@ export class CompositorEngine {
 
       if (!frame) return null;
 
+      // Apply chroma key if enabled (before compositing so alpha works with layers below)
+      const chromaKey = clip.filters?.chromaKey;
+      if (chromaKey?.enabled && frame) {
+        const processed = await this.chromaKeyProcessor.process(
+          frame,
+          frame.width,
+          frame.height,
+          chromaKey,
+        );
+        this.pendingBitmaps.push(processed);
+        frame = processed;
+      }
+
       // Get cached filter string (memoized for performance)
       const filter = this.getCachedFilterString(clip);
 
@@ -719,6 +738,7 @@ export class CompositorEngine {
     // Clear caches
     this.filterCache.clear();
 
+    this.chromaKeyProcessor.dispose();
     this.scheduler.dispose();
     this.audioMixer.dispose();
     this.decoderPool.releaseAll();

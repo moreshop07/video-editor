@@ -273,6 +273,13 @@
     "zoomOut": "縮小",
     "duration": "時長"
   },
+  "chromaKey": {
+    "title": "去背 (色度鍵)",
+    "keyColor": "鍵色",
+    "similarity": "相似度",
+    "smoothness": "邊緣平滑度",
+    "despill": "溢色抑制強度"
+  },
   "download": {
     "title": "下載影片",
     "urlPlaceholder": "貼上影片網址（YouTube、TikTok、Instagram...）",

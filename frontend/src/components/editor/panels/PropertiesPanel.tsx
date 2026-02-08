@@ -2,8 +2,8 @@ import React, { useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTimelineStore, type Clip, type Track } from '@/store/timelineStore';
 import { getEffectDefinition } from '@/effects/effectDefinitions';
-import type { ClipFilters } from '@/effects/types';
-import { DEFAULT_CLIP_FILTERS } from '@/effects/types';
+import type { ClipFilters, ChromaKeySettings } from '@/effects/types';
+import { DEFAULT_CLIP_FILTERS, DEFAULT_CHROMA_KEY } from '@/effects/types';
 import type { Transition } from '@/types/transitions';
 import type { AnimatableProperty } from '@/types/keyframes';
 import { ANIMATABLE_PROPERTY_DEFAULTS } from '@/types/keyframes';
@@ -70,6 +70,17 @@ function PropertiesPanelComponent() {
       setClipTransition(selectedData.clip.id, transition);
     },
     [selectedData, setClipTransition],
+  );
+
+  const handleChromaKeyUpdate = useCallback(
+    (chromaKey: ChromaKeySettings) => {
+      if (!selectedData) return;
+      const filters: ClipFilters = selectedData.clip.filters ?? DEFAULT_CLIP_FILTERS;
+      updateClip(selectedData.track.id, selectedData.clip.id, {
+        filters: { ...filters, chromaKey },
+      });
+    },
+    [selectedData, updateClip],
   );
 
   if (!selectedData) {
@@ -418,6 +429,78 @@ function PropertiesPanelComponent() {
             value={clip.transitionIn}
             onChange={handleTransitionChange}
           />
+        </div>
+      )}
+
+      {/* Chroma Key / Green Screen */}
+      {isVideoType && (
+        <div className="flex flex-col gap-3 border-t border-[var(--color-border)] pt-3">
+          <div className="flex items-center justify-between">
+            <div className="text-[10px] font-medium uppercase tracking-wider text-[var(--color-text-secondary)]">
+              {t('chromaKey.title')}
+            </div>
+            <button
+              onClick={() => {
+                const current = clipFilters.chromaKey ?? DEFAULT_CHROMA_KEY;
+                handleChromaKeyUpdate({ ...current, enabled: !current.enabled });
+              }}
+              className={`relative h-4 w-8 rounded-full transition-colors ${
+                clipFilters.chromaKey?.enabled
+                  ? 'bg-[var(--color-primary)]'
+                  : 'bg-white/20'
+              }`}
+            >
+              <span className={`absolute top-0.5 h-3 w-3 rounded-full bg-white transition-transform ${
+                clipFilters.chromaKey?.enabled ? 'translate-x-4' : 'translate-x-0.5'
+              }`} />
+            </button>
+          </div>
+
+          {clipFilters.chromaKey?.enabled && (
+            <>
+              <div className="flex items-center gap-2">
+                <label className="text-[10px] text-[var(--color-text-secondary)]">
+                  {t('chromaKey.keyColor')}
+                </label>
+                <input
+                  type="color"
+                  value={clipFilters.chromaKey.keyColor}
+                  onChange={(e) => handleChromaKeyUpdate({
+                    ...clipFilters.chromaKey!,
+                    keyColor: e.target.value,
+                  })}
+                  className="h-6 w-10 cursor-pointer rounded border border-[var(--color-border)]"
+                />
+              </div>
+              <PropertySlider
+                label={t('chromaKey.similarity')}
+                value={clipFilters.chromaKey.similarity}
+                min={0}
+                max={1}
+                step={0.01}
+                onChange={(v) => handleChromaKeyUpdate({ ...clipFilters.chromaKey!, similarity: v })}
+                format={(v) => `${Math.round(v * 100)}%`}
+              />
+              <PropertySlider
+                label={t('chromaKey.smoothness')}
+                value={clipFilters.chromaKey.smoothness}
+                min={0}
+                max={0.5}
+                step={0.01}
+                onChange={(v) => handleChromaKeyUpdate({ ...clipFilters.chromaKey!, smoothness: v })}
+                format={(v) => `${Math.round(v * 100)}%`}
+              />
+              <PropertySlider
+                label={t('chromaKey.despill')}
+                value={clipFilters.chromaKey.despill}
+                min={0}
+                max={1}
+                step={0.01}
+                onChange={(v) => handleChromaKeyUpdate({ ...clipFilters.chromaKey!, despill: v })}
+                format={(v) => `${Math.round(v * 100)}%`}
+              />
+            </>
+          )}
         </div>
       )}
 
