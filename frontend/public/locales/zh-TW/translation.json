@@ -765,6 +765,30 @@
       "milliseconds": "毫秒"
     }
   },
+  "markers": {
+    "title": "標記",
+    "marker": "標記",
+    "addMarker": "新增標記",
+    "addChapter": "新增章節",
+    "addCuePoint": "新增提示點",
+    "edit": "編輯",
+    "editLabel": "編輯標籤：",
+    "delete": "刪除",
+    "search": "搜尋標記...",
+    "empty": "尚無標記。按 M 在播放頭位置新增標記。",
+    "unnamed": "未命名",
+    "exportChapters": "匯出章節",
+    "exportWebVTT": "匯出 WebVTT",
+    "label": "標籤",
+    "color": "顏色",
+    "time": "時間",
+    "typeLabel": "類型",
+    "type": {
+      "marker": "標記",
+      "chapter": "章節",
+      "cuePoint": "提示點"
+    }
+  },
   "shortcuts": {
     "title": "鍵盤快捷鍵",
     "playback": "播放",
@@ -772,6 +796,7 @@
     "selection": "選取",
     "view": "檢視",
     "file": "檔案",
+    "markers": "標記",
     "playPause": "播放 / 暫停",
     "seekForward": "前進 1 秒",
     "seekForwardFast": "前進 5 秒",
@@ -793,6 +818,10 @@
     "zoomOut": "縮小",
     "toggleSnap": "切換對齊",
     "muteTrack": "靜音所選軌道",
+    "addMarker": "新增標記",
+    "addNamedMarker": "新增命名標記",
+    "nextMarker": "下一個標記",
+    "prevMarker": "上一個標記",
     "save": "儲存專案",
     "showShortcuts": "顯示快捷鍵"
   }

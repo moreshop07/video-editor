@@ -26,6 +26,11 @@ export default function Timeline() {
   const timelineRef = useRef<HTMLDivElement>(null);
   const rulerRef = useRef<HTMLDivElement>(null);
   const [isSeeking, setIsSeeking] = useState(false);
+  const [markerContextMenu, setMarkerContextMenu] = useState<{
+    x: number;
+    y: number;
+    markerId: string;
+  } | null>(null);
 
   const {
     tracks,
@@ -40,6 +45,9 @@ export default function Timeline() {
     setScrollX,
     selectClip,
     snapLine,
+    markers,
+    removeMarker,
+    updateMarker,
   } = useTimelineStore();
 
   const connectedUsers = useCollaborationStore((s) => s.connectedUsers);
@@ -80,6 +88,15 @@ export default function Timeline() {
     }
     return markers;
   }, [zoom, scrollX, pxPerMs]);
+
+  // Visible timeline markers
+  const visibleMarkers = useMemo(() => {
+    const visibleStart = scrollX / pxPerMs;
+    const visibleEnd = visibleStart + viewportWidth / pxPerMs;
+    return markers.filter(
+      (m) => m.time >= visibleStart - 1000 && m.time <= visibleEnd + 1000,
+    );
+  }, [markers, scrollX, pxPerMs, viewportWidth]);
 
   // Playhead position in px
   const playheadX = currentTime * pxPerMs - scrollX;
@@ -275,6 +292,41 @@ export default function Timeline() {
                 </div>
               );
             })}
+
+            {/* Marker diamonds on ruler */}
+            {visibleMarkers.map((marker) => {
+              const x = marker.time * pxPerMs;
+              return (
+                <div
+                  key={`ruler-marker-${marker.id}`}
+                  className="absolute top-1 cursor-pointer z-10 group"
+                  style={{ left: x }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCurrentTime(marker.time);
+                  }}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setMarkerContextMenu({ x: e.clientX, y: e.clientY, markerId: marker.id });
+                  }}
+                  title={marker.label || t('markers.marker')}
+                >
+                  <div
+                    className="w-2.5 h-2.5 rotate-45 -translate-x-[5px]"
+                    style={{ backgroundColor: marker.color }}
+                  />
+                  {marker.label && (
+                    <div
+                      className="absolute top-5 left-1/2 -translate-x-1/2 whitespace-nowrap rounded px-1 py-0.5 text-[8px] text-white opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity"
+                      style={{ backgroundColor: marker.color }}
+                    >
+                      {marker.label}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           {/* Track lanes */}
@@ -291,6 +343,18 @@ export default function Timeline() {
                   style={{ left: snapLine * pxPerMs }}
                 />
               )}
+
+              {/* Marker vertical lines */}
+              {visibleMarkers.map((marker) => (
+                <div
+                  key={`marker-line-${marker.id}`}
+                  className="absolute top-0 bottom-0 pointer-events-none z-[5] opacity-40"
+                  style={{
+                    left: marker.time * pxPerMs,
+                    borderLeft: `1px dashed ${marker.color}`,
+                  }}
+                />
+              ))}
 
               {/* Remote user cursors */}
               {remoteUsers.map((user) => (
@@ -319,6 +383,45 @@ export default function Timeline() {
           </TrackRegistryProvider>
         </div>
       </div>
+
+      {/* Marker context menu */}
+      {markerContextMenu && (
+        <>
+          <div
+            className="fixed inset-0 z-50"
+            onClick={() => setMarkerContextMenu(null)}
+          />
+          <div
+            className="fixed z-50 bg-[var(--color-surface)] border border-[var(--color-border)] rounded shadow-lg py-1 min-w-[120px]"
+            style={{ left: markerContextMenu.x, top: markerContextMenu.y }}
+          >
+            <button
+              className="block w-full px-3 py-1.5 text-xs text-left text-[var(--color-text)] hover:bg-[var(--color-bg)]"
+              onClick={() => {
+                const marker = markers.find((m) => m.id === markerContextMenu.markerId);
+                if (marker) {
+                  const newLabel = prompt(t('markers.editLabel'), marker.label);
+                  if (newLabel !== null) {
+                    updateMarker(marker.id, { label: newLabel });
+                  }
+                }
+                setMarkerContextMenu(null);
+              }}
+            >
+              {t('markers.edit')}
+            </button>
+            <button
+              className="block w-full px-3 py-1.5 text-xs text-left text-red-400 hover:bg-[var(--color-bg)]"
+              onClick={() => {
+                removeMarker(markerContextMenu.markerId);
+                setMarkerContextMenu(null);
+              }}
+            >
+              {t('markers.delete')}
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

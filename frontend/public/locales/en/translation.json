@@ -765,6 +765,30 @@
       "milliseconds": "ms"
     }
   },
+  "markers": {
+    "title": "Markers",
+    "marker": "Marker",
+    "addMarker": "Add Marker",
+    "addChapter": "Add Chapter",
+    "addCuePoint": "Add Cue Point",
+    "edit": "Edit",
+    "editLabel": "Edit label:",
+    "delete": "Delete",
+    "search": "Search markers...",
+    "empty": "No markers yet. Press M to add a marker at the playhead.",
+    "unnamed": "Untitled",
+    "exportChapters": "Export Chapters",
+    "exportWebVTT": "Export WebVTT",
+    "label": "Label",
+    "color": "Color",
+    "time": "Time",
+    "typeLabel": "Type",
+    "type": {
+      "marker": "Marker",
+      "chapter": "Chapter",
+      "cuePoint": "Cue Point"
+    }
+  },
   "shortcuts": {
     "title": "Keyboard Shortcuts",
     "playback": "Playback",
@@ -772,6 +796,7 @@
     "selection": "Selection",
     "view": "View",
     "file": "File",
+    "markers": "Markers",
     "playPause": "Play / Pause",
     "seekForward": "Seek Forward 1s",
     "seekForwardFast": "Seek Forward 5s",
@@ -793,6 +818,10 @@
     "zoomOut": "Zoom Out",
     "toggleSnap": "Toggle Snap",
     "muteTrack": "Mute Selected Track",
+    "addMarker": "Add Marker",
+    "addNamedMarker": "Add Named Marker",
+    "nextMarker": "Next Marker",
+    "prevMarker": "Previous Marker",
     "save": "Save Project",
     "showShortcuts": "Show Shortcuts"
   }

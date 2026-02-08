@@ -58,7 +58,16 @@ const shortcutGroups: ShortcutGroup[] = [
       { keys: '+ / =', labelKey: 'shortcuts.zoomIn' },
       { keys: '-', labelKey: 'shortcuts.zoomOut' },
       { keys: 'N', labelKey: 'shortcuts.toggleSnap' },
-      { keys: 'M', labelKey: 'shortcuts.muteTrack' },
+      { keys: 'U', labelKey: 'shortcuts.muteTrack' },
+    ],
+  },
+  {
+    titleKey: 'shortcuts.markers',
+    shortcuts: [
+      { keys: 'M', labelKey: 'shortcuts.addMarker' },
+      { keys: 'Shift + M', labelKey: 'shortcuts.addNamedMarker' },
+      { keys: `${modKey} + →`, labelKey: 'shortcuts.nextMarker' },
+      { keys: `${modKey} + ←`, labelKey: 'shortcuts.prevMarker' },
     ],
   },
   {

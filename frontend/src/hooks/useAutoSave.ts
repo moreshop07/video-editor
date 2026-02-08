@@ -56,6 +56,7 @@ export function useAutoSave(ws: ProjectWebSocket | null) {
     const unsub = useTimelineStore.subscribe(
       (state) => ({
         tracks: state.tracks,
+        markers: state.markers,
         zoom: state.zoom,
         scrollX: state.scrollX,
         snapEnabled: state.snapEnabled,

@@ -195,6 +195,7 @@ describe('timelineStore', () => {
     const state = getState();
     const data = serializeForSave({
       tracks: state.tracks,
+      markers: state.markers,
       zoom: state.zoom,
       scrollX: state.scrollX,
       snapEnabled: state.snapEnabled,

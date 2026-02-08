@@ -189,6 +189,19 @@ export function useKeyboardShortcuts() {
             duplicateSelectedClips();
             return;
         }
+
+        // Ctrl+Arrow: navigate between markers
+        if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          state.navigateToNextMarker();
+          return;
+        }
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          state.navigateToPrevMarker();
+          return;
+        }
+
         return; // Don't process plain keys if modifier is held
       }
 
@@ -238,7 +251,30 @@ export function useKeyboardShortcuts() {
           break;
 
         case 'm':
+          state.addMarker({
+            time: state.currentTime,
+            label: '',
+            color: '#f59e0b',
+            type: 'marker',
+          });
+          break;
+
         case 'M':
+          {
+            const label = prompt('Marker label:');
+            if (label !== null) {
+              state.addMarker({
+                time: state.currentTime,
+                label,
+                color: '#f59e0b',
+                type: 'marker',
+              });
+            }
+          }
+          break;
+
+        case 'u':
+        case 'U':
           if (state.selectedTrackId) {
             state.toggleTrackMute(state.selectedTrackId);
           }

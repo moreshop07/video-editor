@@ -62,9 +62,34 @@ export function applyRemoteOp(opType: string, payload: Record<string, unknown>):
     case 'toggle_track_mute':
       state.toggleTrackMute(payload.trackId as string);
       break;
+    case 'add_marker':
+      state.addMarker(payload.marker as Omit<Marker, 'id'> & { id?: string });
+      break;
+    case 'remove_marker':
+      state.removeMarker(payload.markerId as string);
+      break;
+    case 'update_marker':
+      state.updateMarker(
+        payload.markerId as string,
+        payload.updates as Partial<Omit<Marker, 'id'>>,
+      );
+      break;
   }
   _suppressBroadcast = false;
 }
+
+export type MarkerType = 'marker' | 'chapter' | 'cuePoint';
+
+export interface Marker {
+  id: string;
+  time: number;        // position on timeline in ms
+  label: string;
+  color: string;       // hex color
+  type: MarkerType;
+}
+
+let markerCounter = 0;
+const genMarkerId = () => `marker_${++markerCounter}_${Date.now()}`;
 
 export interface Clip {
   id: string;
@@ -179,6 +204,13 @@ export interface ProjectData {
         cropRight?: number;
       }>;
     }>;
+    markers?: Array<{
+      id: string;
+      time: number;
+      label: string;
+      color: string;
+      type: string;
+    }>;
     zoom: number;
     scrollX: number;
     snapEnabled: boolean;
@@ -187,6 +219,7 @@ export interface ProjectData {
 
 export function serializeForSave(state: {
   tracks: Track[];
+  markers: Marker[];
   zoom: number;
   scrollX: number;
   snapEnabled: boolean;
@@ -245,6 +278,13 @@ export function serializeForSave(state: {
           cropRight: c.cropRight,
         })),
       })),
+      markers: state.markers.map((m) => ({
+        id: m.id,
+        time: m.time,
+        label: m.label,
+        color: m.color,
+        type: m.type,
+      })),
       zoom: state.zoom,
       scrollX: state.scrollX,
       snapEnabled: state.snapEnabled,
@@ -263,6 +303,14 @@ interface TimelineState {
   selectedTrackId: string | null;
   snapEnabled: boolean;
   snapLine: number | null;
+  markers: Marker[];
+
+  // Marker operations
+  addMarker: (marker: Omit<Marker, 'id'> & { id?: string }) => void;
+  removeMarker: (markerId: string) => void;
+  updateMarker: (markerId: string, updates: Partial<Omit<Marker, 'id'>>) => void;
+  navigateToNextMarker: () => void;
+  navigateToPrevMarker: () => void;
 
   // Track operations
   addTrack: (type: Track['type'], name?: string) => void;
@@ -358,6 +406,49 @@ export const useTimelineStore = create<TimelineState>()(
       selectedTrackId: null,
       snapEnabled: true,
       snapLine: null,
+      markers: [],
+
+      addMarker: (marker) => {
+        const newMarker: Marker = {
+          time: marker.time,
+          label: marker.label,
+          color: marker.color,
+          type: marker.type,
+          id: marker.id || genMarkerId(),
+        };
+        set((state) => ({
+          markers: [...state.markers, newMarker].sort((a, b) => a.time - b.time),
+        }));
+        broadcast('add_marker', { marker: newMarker });
+      },
+
+      removeMarker: (markerId) => {
+        set((state) => ({
+          markers: state.markers.filter((m) => m.id !== markerId),
+        }));
+        broadcast('remove_marker', { markerId });
+      },
+
+      updateMarker: (markerId, updates) => {
+        set((state) => ({
+          markers: state.markers
+            .map((m) => (m.id === markerId ? { ...m, ...updates } : m))
+            .sort((a, b) => a.time - b.time),
+        }));
+        broadcast('update_marker', { markerId, updates });
+      },
+
+      navigateToNextMarker: () => {
+        const { markers, currentTime } = get();
+        const next = markers.find((m) => m.time > currentTime + 1);
+        if (next) set({ currentTime: next.time });
+      },
+
+      navigateToPrevMarker: () => {
+        const { markers, currentTime } = get();
+        const prev = [...markers].reverse().find((m) => m.time < currentTime - 1);
+        if (prev) set({ currentTime: prev.time });
+      },
 
       addTrack: (type, name) => {
         set((state) => ({
@@ -781,6 +872,13 @@ export const useTimelineStore = create<TimelineState>()(
               cropRight: c.cropRight,
             })),
           })),
+          markers: (data.timeline.markers ?? []).map((m) => ({
+            id: m.id,
+            time: m.time,
+            label: m.label,
+            color: m.color,
+            type: m.type as MarkerType,
+          })),
           zoom: data.timeline.zoom ?? 1,
           scrollX: data.timeline.scrollX ?? 0,
           snapEnabled: data.timeline.snapEnabled ?? true,
@@ -802,6 +900,7 @@ export const useTimelineStore = create<TimelineState>()(
       partialize: (state) => ({
         // Only track content state, not transient UI state
         tracks: state.tracks,
+        markers: state.markers,
         zoom: state.zoom,
         scrollX: state.scrollX,
         snapEnabled: state.snapEnabled,
