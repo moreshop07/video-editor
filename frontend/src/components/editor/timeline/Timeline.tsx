@@ -4,6 +4,7 @@ import { useTimelineStore, Track as TrackType } from '@/store/timelineStore';
 import { useCollaborationStore } from '@/store/collaborationStore';
 import { TrackRegistryProvider } from './TrackRegistry';
 import Track from './Track';
+import TimelineMinimap from './TimelineMinimap';
 
 const TRACK_TYPE_COLORS: Record<string, string> = {
   video: '#3b82f6',
@@ -383,6 +384,9 @@ export default function Timeline() {
           </TrackRegistryProvider>
         </div>
       </div>
+
+      {/* Minimap */}
+      <TimelineMinimap viewportWidth={viewportWidth} />
 
       {/* Marker context menu */}
       {markerContextMenu && (

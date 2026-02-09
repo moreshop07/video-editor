@@ -4,6 +4,8 @@ import { useAnalyzerStore } from '@/store/analyzerStore';
 import { useAssetStore, useTimelineStore } from '@/store';
 import { useProjectStore } from '@/store/projectStore';
 import { DEFAULT_CLIP_FILTERS } from '@/effects/types';
+import { detectBeats } from '@/engine/beatDetector';
+import { WaveformCache } from '@/engine/WaveformCache';
 
 type SmartTab = 'beatSync' | 'montage' | 'platform' | 'highlights';
 
@@ -154,16 +156,21 @@ function useJobPoller(
 }
 
 // ---------------------------------------------------------------------------
-// Beat Sync Section
+// Beat Sync Section (with local + server modes)
 // ---------------------------------------------------------------------------
+type BeatMode = 'local' | 'server';
+
 function BeatSyncSection() {
   const { t } = useTranslation();
   const assets = useAssetStore((s) => s.assets);
   const { startBeatSync } = useAnalyzerStore();
+  const addMarker = useTimelineStore((s) => s.addMarker);
 
   const videoAssets = assets.filter((a) => a.asset_type === 'video');
   const audioAssets = assets.filter((a) => a.asset_type === 'audio');
+  const allMediaAssets = [...videoAssets, ...audioAssets];
 
+  const [mode, setMode] = useState<BeatMode>('local');
   const [assetId, setAssetId] = useState<number | null>(null);
   const [musicAssetId, setMusicAssetId] = useState<number | null>(null);
   const [sensitivity, setSensitivity] = useState(1.0);
@@ -174,13 +181,21 @@ function BeatSyncSection() {
   const [error, setError] = useState('');
   const [applied, setApplied] = useState(false);
 
-  const { progress, loading } = useJobPoller(
+  // Local beat detection state
+  const [localLoading, setLocalLoading] = useState(false);
+  const [localBeats, setLocalBeats] = useState<{ timeMs: number; strength: number }[] | null>(null);
+  const [markersAdded, setMarkersAdded] = useState(false);
+
+  const { progress, loading: serverLoading } = useJobPoller(
     jobId,
     (r) => { setResult(r); setJobId(null); },
     (msg) => { setError(msg); setJobId(null); },
   );
 
-  const handleStart = useCallback(async () => {
+  const loading = mode === 'server' ? serverLoading : localLoading;
+
+  // Server mode start
+  const handleServerStart = useCallback(async () => {
     if (!assetId) return;
     setError('');
     setResult(null);
@@ -198,69 +213,192 @@ function BeatSyncSection() {
     }
   }, [assetId, musicAssetId, sensitivity, minClipMs, includeTransitions, startBeatSync, t]);
 
+  // Local mode start
+  const handleLocalStart = useCallback(async () => {
+    if (!assetId) return;
+    setError('');
+    setLocalBeats(null);
+    setMarkersAdded(false);
+    setLocalLoading(true);
+
+    try {
+      const asset = assets.find((a) => a.id === assetId);
+      if (!asset) throw new Error('Asset not found');
+
+      const url = `/api/v1/assets/${assetId}/stream`;
+      const waveformCache = WaveformCache.getInstance();
+      // Load waveform (which fetches and decodes the audio)
+      await waveformCache.load(String(assetId), url);
+
+      // We need the AudioBuffer directly - fetch and decode
+      const response = await fetch(url);
+      const arrayBuffer = await response.arrayBuffer();
+      const audioCtx = new AudioContext();
+      const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+      await audioCtx.close();
+
+      const beats = detectBeats(audioBuffer, sensitivity);
+      setLocalBeats(beats);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('smartEdit.common.failed'));
+    } finally {
+      setLocalLoading(false);
+    }
+  }, [assetId, sensitivity, assets, t]);
+
+  // Add beats as markers
+  const handleAddAsMarkers = useCallback(() => {
+    if (!localBeats) return;
+    for (const beat of localBeats) {
+      addMarker({
+        id: `beat_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        time: beat.timeMs,
+        label: '',
+        color: '#f59e0b',
+        type: 'cuePoint',
+      });
+    }
+    setMarkersAdded(true);
+  }, [localBeats, addMarker]);
+
+  const handleStart = mode === 'server' ? handleServerStart : handleLocalStart;
+
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-xs text-[var(--text-secondary)]">{t('smartEdit.beatSync.description')}</p>
+      {/* Mode toggle */}
+      <div className="flex gap-1">
+        <button
+          onClick={() => setMode('local')}
+          className={`flex-1 rounded px-2 py-1.5 text-[10px] ${
+            mode === 'local'
+              ? 'bg-[var(--accent)] text-white'
+              : 'bg-white/5 text-[var(--text-secondary)] hover:bg-white/10'
+          }`}
+        >
+          {t('beatDetect.local')}
+        </button>
+        <button
+          onClick={() => setMode('server')}
+          className={`flex-1 rounded px-2 py-1.5 text-[10px] ${
+            mode === 'server'
+              ? 'bg-[var(--accent)] text-white'
+              : 'bg-white/5 text-[var(--text-secondary)] hover:bg-white/10'
+          }`}
+        >
+          {t('beatDetect.server')}
+        </button>
+      </div>
 
-      <select
-        value={assetId ?? ''}
-        onChange={(e) => setAssetId(e.target.value ? Number(e.target.value) : null)}
-        className="w-full rounded bg-white/5 px-3 py-2 text-xs text-[var(--text-primary)] outline-none"
-        disabled={loading}
-      >
-        <option value="">{t('smartEdit.beatSync.selectVideo')}</option>
-        {videoAssets.map((a) => (
-          <option key={a.id} value={a.id}>{a.original_filename}</option>
-        ))}
-      </select>
+      {/* Asset selector */}
+      {mode === 'local' ? (
+        <select
+          value={assetId ?? ''}
+          onChange={(e) => setAssetId(e.target.value ? Number(e.target.value) : null)}
+          className="w-full rounded bg-white/5 px-3 py-2 text-xs text-[var(--text-primary)] outline-none"
+          disabled={loading}
+        >
+          <option value="">{t('smartEdit.beatSync.selectMusic')}</option>
+          {allMediaAssets.map((a) => (
+            <option key={a.id} value={a.id}>{a.original_filename}</option>
+          ))}
+        </select>
+      ) : (
+        <>
+          <select
+            value={assetId ?? ''}
+            onChange={(e) => setAssetId(e.target.value ? Number(e.target.value) : null)}
+            className="w-full rounded bg-white/5 px-3 py-2 text-xs text-[var(--text-primary)] outline-none"
+            disabled={loading}
+          >
+            <option value="">{t('smartEdit.beatSync.selectVideo')}</option>
+            {videoAssets.map((a) => (
+              <option key={a.id} value={a.id}>{a.original_filename}</option>
+            ))}
+          </select>
 
-      <select
-        value={musicAssetId ?? ''}
-        onChange={(e) => setMusicAssetId(e.target.value ? Number(e.target.value) : null)}
-        className="w-full rounded bg-white/5 px-3 py-2 text-xs text-[var(--text-primary)] outline-none"
-        disabled={loading}
-      >
-        <option value="">{t('smartEdit.beatSync.selectMusic')}</option>
-        {audioAssets.map((a) => (
-          <option key={a.id} value={a.id}>{a.original_filename}</option>
-        ))}
-      </select>
+          <select
+            value={musicAssetId ?? ''}
+            onChange={(e) => setMusicAssetId(e.target.value ? Number(e.target.value) : null)}
+            className="w-full rounded bg-white/5 px-3 py-2 text-xs text-[var(--text-primary)] outline-none"
+            disabled={loading}
+          >
+            <option value="">{t('smartEdit.beatSync.selectMusic')}</option>
+            {audioAssets.map((a) => (
+              <option key={a.id} value={a.id}>{a.original_filename}</option>
+            ))}
+          </select>
+        </>
+      )}
 
+      {/* Sensitivity slider */}
       <div className="flex flex-col gap-1">
         <label className="text-xs text-[var(--text-secondary)]">
           {t('smartEdit.beatSync.sensitivity')}: {sensitivity.toFixed(1)}
         </label>
-        <input type="range" min={0.1} max={3.0} step={0.1} value={sensitivity}
+        <input type="range" min={0.5} max={3.0} step={0.1} value={sensitivity}
           onChange={(e) => setSensitivity(Number(e.target.value))} className="w-full" />
-        <span className="text-[10px] text-[var(--text-secondary)]">{t('smartEdit.beatSync.sensitivityHint')}</span>
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label className="text-xs text-[var(--text-secondary)]">
-          {t('smartEdit.beatSync.minClipDuration')}: {minClipMs}ms
-        </label>
-        <input type="range" min={200} max={5000} step={100} value={minClipMs}
-          onChange={(e) => setMinClipMs(Number(e.target.value))} className="w-full" />
-      </div>
+      {/* Server-only controls */}
+      {mode === 'server' && (
+        <>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-[var(--text-secondary)]">
+              {t('smartEdit.beatSync.minClipDuration')}: {minClipMs}ms
+            </label>
+            <input type="range" min={200} max={5000} step={100} value={minClipMs}
+              onChange={(e) => setMinClipMs(Number(e.target.value))} className="w-full" />
+          </div>
 
-      <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-        <input type="checkbox" checked={includeTransitions}
-          onChange={(e) => setIncludeTransitions(e.target.checked)} />
-        {t('smartEdit.beatSync.includeTransitions')}
-      </label>
+          <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+            <input type="checkbox" checked={includeTransitions}
+              onChange={(e) => setIncludeTransitions(e.target.checked)} />
+            {t('smartEdit.beatSync.includeTransitions')}
+          </label>
+        </>
+      )}
 
+      {/* Start button */}
       <button onClick={handleStart} disabled={!assetId || loading}
         className="rounded bg-[var(--accent)] px-3 py-2 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50">
-        {loading ? t('smartEdit.beatSync.processing') : t('smartEdit.beatSync.start')}
+        {loading
+          ? (mode === 'local' ? t('beatDetect.detecting') : t('smartEdit.beatSync.processing'))
+          : t('smartEdit.beatSync.start')}
       </button>
 
-      {loading && (
+      {/* Server loading progress */}
+      {mode === 'server' && serverLoading && (
         <div className="h-2 w-full rounded bg-white/10">
           <div className="h-full rounded bg-[var(--accent)] transition-all" style={{ width: `${progress}%` }} />
         </div>
       )}
 
-      {result && !applied && (
+      {/* Local loading indicator */}
+      {mode === 'local' && localLoading && (
+        <div className="py-2 text-center text-xs text-[var(--text-secondary)]">
+          {t('beatDetect.detecting')}
+        </div>
+      )}
+
+      {/* Local results */}
+      {mode === 'local' && localBeats && !markersAdded && (
+        <div className="flex flex-col gap-2 rounded bg-white/5 p-2">
+          <p className="text-xs text-green-400">
+            {t('beatDetect.detected', { count: localBeats.length })}
+          </p>
+          <button onClick={handleAddAsMarkers}
+            className="rounded bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:opacity-90">
+            {t('beatDetect.addAsMarkers')}
+          </button>
+        </div>
+      )}
+
+      {mode === 'local' && markersAdded && (
+        <p className="text-xs text-green-400">{t('beatDetect.markersAdded')}</p>
+      )}
+
+      {/* Server results */}
+      {mode === 'server' && result && !applied && (
         <div className="flex flex-col gap-2 rounded bg-white/5 p-2">
           <p className="text-xs text-green-400">{t('smartEdit.beatSync.completed')}</p>
           <p className="text-[10px] text-[var(--text-secondary)]">

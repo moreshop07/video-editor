@@ -941,6 +941,17 @@
     "green": "Green Screen",
     "blue": "Blue"
   },
+  "beatDetect": {
+    "local": "Local",
+    "server": "Server",
+    "detecting": "Detecting beats...",
+    "detected": "{{count}} beats detected",
+    "addAsMarkers": "Add as Markers",
+    "markersAdded": "Beat markers added"
+  },
+  "minimap": {
+    "title": "Minimap"
+  },
   "curves": {
     "title": "Curves",
     "master": "Master",

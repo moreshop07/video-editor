@@ -941,6 +941,17 @@
     "green": "綠幕",
     "blue": "藍色"
   },
+  "beatDetect": {
+    "local": "本地",
+    "server": "伺服器",
+    "detecting": "偵測節拍中...",
+    "detected": "偵測到 {{count}} 個節拍",
+    "addAsMarkers": "加入為標記",
+    "markersAdded": "已加入節拍標記"
+  },
+  "minimap": {
+    "title": "縮略圖"
+  },
   "curves": {
     "title": "曲線",
     "master": "主通道",
