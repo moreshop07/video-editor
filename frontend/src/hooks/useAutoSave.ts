@@ -56,10 +56,12 @@ export function useAutoSave(ws: ProjectWebSocket | null) {
     const unsub = useTimelineStore.subscribe(
       (state) => ({
         tracks: state.tracks,
+        sequences: state.sequences,
         markers: state.markers,
         zoom: state.zoom,
         scrollX: state.scrollX,
         snapEnabled: state.snapEnabled,
+        canvasBackground: state.canvasBackground,
       }),
       (selected) => {
         const serialized = serializeForSave(selected);

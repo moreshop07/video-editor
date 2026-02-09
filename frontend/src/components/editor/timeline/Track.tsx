@@ -18,6 +18,7 @@ const TRACK_COLORS: Record<string, string> = {
   sfx: 'rgba(245, 158, 11, 0.3)',
   subtitle: 'rgba(236, 72, 153, 0.3)',
   sticker: 'rgba(6, 182, 212, 0.3)',
+  adjustment: 'rgba(244, 63, 94, 0.3)',
 };
 
 function TrackComponent({ track, pxPerMs, isDragTarget, viewportWidth }: TrackProps) {

@@ -952,6 +952,15 @@
   "minimap": {
     "title": "Minimap"
   },
+  "adjustment": {
+    "title": "Adjustment Layer",
+    "description": "Effects apply to all layers below"
+  },
+  "sequence": {
+    "nest": "Nest Selection",
+    "unnest": "Unnest",
+    "nestedSequence": "Nested Sequence"
+  },
   "curves": {
     "title": "Curves",
     "master": "Master",

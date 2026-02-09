@@ -35,6 +35,7 @@ export default function VideoPreview() {
   const play = useTimelineStore((s) => s.play);
   const pause = useTimelineStore((s) => s.pause);
   const canvasBackground = useTimelineStore((s) => s.canvasBackground);
+  const sequences = useTimelineStore((s) => s.sequences);
 
   // Resize canvas to fit container maintaining 16:9
   useEffect(() => {
@@ -149,6 +150,7 @@ export default function VideoPreview() {
         shapeStroke: c.shapeStroke,
         shapeStrokeWidth: c.shapeStrokeWidth,
         shapeCornerRadius: c.shapeCornerRadius,
+        sequenceId: c.sequenceId,
       })),
       muted: t.muted,
       visible: t.visible,
@@ -158,10 +160,41 @@ export default function VideoPreview() {
 
     engine.setTracks(renderableTracks);
 
+    // Convert sequences to renderable format
+    const renderableSequences: Record<string, { tracks: RenderableTrack[] }> = {};
+    for (const [seqId, seq] of Object.entries(sequences)) {
+      renderableSequences[seqId] = {
+        tracks: seq.tracks.map((st) => ({
+          id: st.id,
+          type: st.type,
+          clips: st.clips.map((sc) => ({
+            id: sc.id,
+            assetId: sc.assetId,
+            startTime: sc.startTime,
+            endTime: sc.endTime,
+            trimStart: sc.trimStart,
+            duration: sc.duration,
+            volume: sc.volume ?? 1,
+            opacity: 1,
+            type: sc.type,
+            filters: sc.filters,
+            fadeInMs: sc.fadeInMs,
+            fadeOutMs: sc.fadeOutMs,
+            sequenceId: sc.sequenceId,
+          })),
+          muted: st.muted,
+          visible: st.visible,
+          volume: st.audioSettings?.volume ?? 1,
+          audioSettings: st.audioSettings,
+        })),
+      };
+    }
+    engine.setSequences(renderableSequences);
+
     // Check if any clips exist
     const clipCount = tracks.reduce((sum, t) => sum + t.clips.length, 0);
     setHasContent(clipCount > 0);
-  }, [tracks]);
+  }, [tracks, sequences]);
 
   // Sync subtitle segments to engine when active track changes
   useEffect(() => {

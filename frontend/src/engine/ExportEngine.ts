@@ -55,6 +55,7 @@ export class ExportEngine {
   private engine: CompositorEngine | null = null;
   private cancelled = false;
   private status: ExportStatus = 'idle';
+  private _sequences?: Record<string, { tracks: RenderableTrack[] }>;
 
   onProgress: ((progress: ExportProgress) => void) | null = null;
 
@@ -75,8 +76,10 @@ export class ExportEngine {
     subtitleSegments: SubtitleEntry[],
     urlResolver: (assetId: string) => string,
     durationMs: number,
+    sequences?: Record<string, { tracks: RenderableTrack[] }>,
   ): Promise<Blob> {
     this.cancelled = false;
+    this._sequences = sequences;
 
     switch (config.format) {
       case 'wav':
@@ -440,6 +443,9 @@ export class ExportEngine {
     await this.engine.init();
     this.engine.setAssetUrlResolver(urlResolver);
     this.engine.setTracks(tracks);
+    if (this._sequences) {
+      this.engine.setSequences(this._sequences);
+    }
 
     if (config.includeSubtitles) {
       this.engine.setSubtitleSegments(subtitleSegments);

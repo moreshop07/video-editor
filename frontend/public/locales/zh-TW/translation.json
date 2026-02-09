@@ -952,6 +952,15 @@
   "minimap": {
     "title": "縮略圖"
   },
+  "adjustment": {
+    "title": "調整圖層",
+    "description": "效果套用至下方所有圖層"
+  },
+  "sequence": {
+    "nest": "建立巢狀序列",
+    "unnest": "解除巢狀",
+    "nestedSequence": "巢狀序列"
+  },
   "curves": {
     "title": "曲線",
     "master": "主通道",

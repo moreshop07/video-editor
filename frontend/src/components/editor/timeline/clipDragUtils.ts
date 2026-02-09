@@ -8,6 +8,7 @@ const TRACK_COMPATIBILITY: Record<string, string[]> = {
   sfx: ['audio', 'sfx'],
   subtitle: ['subtitle'],
   sticker: ['sticker', 'video'],
+  adjustment: ['adjustment'],
 };
 
 export function isCompatibleTrackType(clipType: string, trackType: string): boolean {

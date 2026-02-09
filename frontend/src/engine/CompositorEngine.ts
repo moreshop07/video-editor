@@ -58,6 +58,11 @@ export class CompositorEngine {
   // ImageBitmap cleanup tracking
   private pendingBitmaps: ImageBitmap[] = [];
 
+  // Nested sequences
+  private sequences: Record<string, { tracks: RenderableTrack[] }> = {};
+  private nestingDepth = 0;
+  private static readonly MAX_NESTING = 8;
+
   // Chroma key processor
   private chromaKeyProcessor: ChromaKeyProcessor;
 
@@ -148,6 +153,10 @@ export class CompositorEngine {
     this.duckingProcessor.setTracks(tracks);
     this.updateDuration();
     this.preloadVisibleAssets();
+  }
+
+  setSequences(sequences: Record<string, { tracks: RenderableTrack[] }>): void {
+    this.sequences = sequences;
   }
 
   private updateDuration(): void {
@@ -342,11 +351,63 @@ export class CompositorEngine {
     }
     this.pendingBitmaps = [];
 
-    const layers: CompositeLayer[] = [];
+    await this.renderTracksToLayers(this.tracks, timeMs);
+  }
+
+  /**
+   * Core track rendering logic, used by both renderFrame() and renderNestedSequence().
+   * When called from renderFrame(), composites to the main canvas.
+   * When called from renderNestedSequence(), returns layers for intermediate compositing.
+   */
+  private async renderTracksToLayers(
+    tracks: RenderableTrack[],
+    timeMs: number,
+    targetCtx?: OffscreenCanvasRenderingContext2D,
+  ): Promise<void> {
+    let layers: CompositeLayer[] = [];
 
     // Process tracks in order (first track = bottom layer)
-    for (const track of this.tracks) {
+    for (const track of tracks) {
       if (!track.visible) continue;
+
+      // Adjustment layer: flatten everything below, apply effects
+      if (track.type === 'adjustment') {
+        const adjustmentClip = this.findActiveClip(track.clips, timeMs);
+        if (adjustmentClip && layers.length > 0) {
+          const intermediate = this.flattenLayersToIntermediate(layers);
+          const clipTimeMs = timeMs - adjustmentClip.startTime;
+          const filter = this.getCachedFilterString(adjustmentClip);
+          const opacity = this.getInterpolatedClipProperty(adjustmentClip, 'opacity', clipTimeMs);
+
+          // Apply chroma key and color grading from adjustment clip
+          let frame: ImageBitmap = intermediate;
+          const chromaKey = adjustmentClip.filters?.chromaKey;
+          if (chromaKey?.enabled) {
+            const processed = await this.chromaKeyProcessor.process(
+              frame, frame.width, frame.height, chromaKey,
+            );
+            this.pendingBitmaps.push(processed);
+            frame = processed;
+          }
+          const colorGrading = adjustmentClip.filters?.colorGrading;
+          if (colorGrading?.enabled) {
+            const processed = await this.colorGradingProcessor.process(
+              frame, frame.width, frame.height, colorGrading,
+            );
+            this.pendingBitmaps.push(processed);
+            frame = processed;
+          }
+
+          layers = [{
+            type: 'video',
+            frame,
+            opacity,
+            filter,
+            blendMode: adjustmentClip.filters?.blendMode,
+          }];
+        }
+        continue;
+      }
 
       // Check for transitions on video/image/text tracks
       const isVisualTrack = track.type === 'video' || track.type === 'sticker' || track.type === 'text';
@@ -395,24 +456,90 @@ export class CompositorEngine {
       }
     }
 
-    this.compositor.composite(layers);
+    if (targetCtx) {
+      // Render to provided offscreen context (for nested sequences)
+      targetCtx.fillStyle = '#000';
+      targetCtx.fillRect(0, 0, this.config.width, this.config.height);
+      for (const layer of layers) {
+        CanvasCompositor.drawLayer(targetCtx, layer, this.config.width, this.config.height);
+      }
+      targetCtx.globalAlpha = 1;
+      targetCtx.filter = 'none';
+      targetCtx.globalCompositeOperation = 'source-over';
+    } else {
+      // Render to main canvas
+      this.compositor.composite(layers);
 
-    // Render subtitle overlay if active segment found
-    const activeSub = this.subtitleSegments.find(
-      (seg) => timeMs >= seg.start_ms && timeMs < seg.end_ms,
-    );
-    if (activeSub) {
-      this.compositor.renderSubtitle({
-        text: activeSub.text,
-        translatedText: activeSub.translated_text,
-        style: activeSub.style ?? null,
-      });
+      // Render subtitle overlay if active segment found
+      const activeSub = this.subtitleSegments.find(
+        (seg) => timeMs >= seg.start_ms && timeMs < seg.end_ms,
+      );
+      if (activeSub) {
+        this.compositor.renderSubtitle({
+          text: activeSub.text,
+          translatedText: activeSub.translated_text,
+          style: activeSub.style ?? null,
+        });
+      }
+
+      // Render letterbox bars on top of everything
+      if (this.letterboxFraction > 0) {
+        this.compositor.renderLetterbox(this.letterboxFraction);
+      }
+    }
+  }
+
+  /**
+   * Flatten pending layers into a single ImageBitmap via an intermediate OffscreenCanvas.
+   * Used by adjustment layers to apply effects to the composited result of all layers below.
+   */
+  private flattenLayersToIntermediate(layers: CompositeLayer[]): ImageBitmap {
+    const offscreen = new OffscreenCanvas(this.config.width, this.config.height);
+    const ctx = offscreen.getContext('2d')!;
+
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, this.config.width, this.config.height);
+
+    for (const layer of layers) {
+      CanvasCompositor.drawLayer(ctx, layer, this.config.width, this.config.height);
     }
 
-    // Render letterbox bars on top of everything
-    if (this.letterboxFraction > 0) {
-      this.compositor.renderLetterbox(this.letterboxFraction);
+    ctx.globalAlpha = 1;
+    ctx.filter = 'none';
+    ctx.globalCompositeOperation = 'source-over';
+
+    const bitmap = offscreen.transferToImageBitmap();
+    this.pendingBitmaps.push(bitmap);
+    return bitmap;
+  }
+
+  /**
+   * Render a nested sequence clip by compositing its inner tracks onto an OffscreenCanvas.
+   */
+  private async renderNestedSequence(
+    clip: RenderableClip,
+    timeMs: number,
+  ): Promise<ImageBitmap | null> {
+    if (!clip.sequenceId || !this.sequences[clip.sequenceId]) return null;
+    if (this.nestingDepth >= CompositorEngine.MAX_NESTING) return null;
+
+    const seqTracks = this.sequences[clip.sequenceId].tracks;
+    const clipTimeMs = timeMs - clip.startTime;
+    const sourceTimeMs = computeSourceTime(clip.trimStart, clipTimeMs, clip.keyframes, clip.filters?.speed ?? 1);
+
+    const offscreen = new OffscreenCanvas(this.config.width, this.config.height);
+    const ctx = offscreen.getContext('2d')!;
+
+    this.nestingDepth++;
+    try {
+      await this.renderTracksToLayers(seqTracks, sourceTimeMs, ctx);
+    } finally {
+      this.nestingDepth--;
     }
+
+    const bitmap = await createImageBitmap(offscreen);
+    this.pendingBitmaps.push(bitmap);
+    return bitmap;
   }
 
   /**
@@ -626,6 +753,42 @@ export class CompositorEngine {
     _track: RenderableTrack,
     _timeMs: number,
   ): Promise<CompositeLayer | null> {
+    // Handle nested sequence clips
+    if (clip.sequenceId) {
+      const frame = await this.renderNestedSequence(clip, _timeMs);
+      if (!frame) return null;
+
+      const clipTimeMs = _timeMs - clip.startTime;
+      const filter = this.getCachedFilterString(clip);
+      const opacity = this.getInterpolatedClipProperty(clip, 'opacity', clipTimeMs);
+      const positionX = this.getInterpolatedClipProperty(clip, 'positionX', clipTimeMs);
+      const positionY = this.getInterpolatedClipProperty(clip, 'positionY', clipTimeMs);
+      const scaleX = this.getInterpolatedClipProperty(clip, 'scaleX', clipTimeMs);
+      const scaleY = this.getInterpolatedClipProperty(clip, 'scaleY', clipTimeMs);
+      const rotation = this.getInterpolatedClipProperty(clip, 'rotation', clipTimeMs);
+
+      const hasTransform =
+        clip.positionX != null || clip.scaleX != null || clip.rotation ||
+        (clip.keyframes && Object.keys(clip.keyframes).length > 0);
+      let transform: CompositeLayer['transform'] | undefined;
+      if (hasTransform) {
+        const w = frame.width * scaleX;
+        const h = frame.height * scaleY;
+        const px = positionX * this.config.width - w / 2;
+        const py = positionY * this.config.height - h / 2;
+        transform = { x: px, y: py, width: w, height: h, rotation };
+      }
+
+      return {
+        type: 'video',
+        frame,
+        opacity,
+        filter,
+        blendMode: clip.filters?.blendMode,
+        transform,
+      };
+    }
+
     const isVideo = clip.type === 'video';
     const isImage = clip.type === 'image' || clip.type === 'sticker';
     const isText = clip.type === 'text';

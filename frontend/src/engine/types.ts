@@ -2,7 +2,7 @@ import type { ClipFilters, TrackAudioSettings } from '@/effects/types';
 import type { Transition } from '@/types/transitions';
 import type { KeyframeTracks } from '@/types/keyframes';
 
-export type TrackType = 'video' | 'audio' | 'music' | 'sfx' | 'subtitle' | 'sticker' | 'text';
+export type TrackType = 'video' | 'audio' | 'music' | 'sfx' | 'subtitle' | 'sticker' | 'text' | 'adjustment';
 
 export type EngineState = 'idle' | 'loading' | 'ready' | 'playing' | 'seeking';
 
@@ -69,6 +69,8 @@ export interface RenderableClip {
   keyframes?: KeyframeTracks;
   // PiP border
   pipBorder?: PipBorder;
+  // Nested sequence
+  sequenceId?: string;
 }
 
 export interface PipBorder {

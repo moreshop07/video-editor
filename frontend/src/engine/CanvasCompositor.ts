@@ -1,5 +1,7 @@
 import type { CompositeLayer, SubtitleOverlay } from './types';
 
+type Ctx2D = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
+
 export class CanvasCompositor {
   private ctx: CanvasRenderingContext2D;
   private width: number;
@@ -29,93 +31,118 @@ export class CanvasCompositor {
   }
 
   /**
+   * Draw a single layer onto a 2D context.
+   * Shared between composite() and CompositorEngine.flattenLayersToIntermediate().
+   */
+  static drawLayer(
+    ctx: Ctx2D,
+    layer: CompositeLayer,
+    canvasWidth: number,
+    canvasHeight: number,
+  ): void {
+    ctx.globalAlpha = layer.opacity;
+    ctx.filter = layer.filter || 'none';
+    ctx.globalCompositeOperation = (layer.blendMode as GlobalCompositeOperation) || 'source-over';
+
+    if (layer.transform) {
+      const { x, y, width, height, rotation, border } = layer.transform;
+      if (rotation) {
+        ctx.save();
+        ctx.translate(x + width / 2, y + height / 2);
+        ctx.rotate((rotation * Math.PI) / 180);
+
+        // Border/shadow for PiP
+        if (border && border.width > 0) {
+          if (border.shadow > 0) {
+            ctx.shadowColor = 'rgba(0,0,0,0.5)';
+            ctx.shadowBlur = border.shadow;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 2;
+          }
+          ctx.strokeStyle = border.color;
+          ctx.lineWidth = border.width;
+          ctx.strokeRect(
+            -width / 2 - border.width / 2,
+            -height / 2 - border.width / 2,
+            width + border.width,
+            height + border.width,
+          );
+          ctx.shadowColor = 'transparent';
+          ctx.shadowBlur = 0;
+        }
+
+        if (layer.transform.sourceClip) {
+          const { sx, sy, sw, sh } = layer.transform.sourceClip;
+          ctx.drawImage(layer.frame, sx, sy, sw, sh, -width / 2, -height / 2, width, height);
+        } else {
+          ctx.drawImage(layer.frame, -width / 2, -height / 2, width, height);
+        }
+        ctx.restore();
+      } else {
+        // Border/shadow for PiP (no rotation)
+        if (border && border.width > 0) {
+          ctx.save();
+          if (border.shadow > 0) {
+            ctx.shadowColor = 'rgba(0,0,0,0.5)';
+            ctx.shadowBlur = border.shadow;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 2;
+          }
+          ctx.strokeStyle = border.color;
+          ctx.lineWidth = border.width;
+          ctx.strokeRect(
+            x - border.width / 2,
+            y - border.width / 2,
+            width + border.width,
+            height + border.width,
+          );
+          ctx.restore();
+        }
+
+        if (layer.transform.sourceClip) {
+          const { sx, sy, sw, sh } = layer.transform.sourceClip;
+          ctx.drawImage(layer.frame, sx, sy, sw, sh, x, y, width, height);
+        } else {
+          ctx.drawImage(layer.frame, x, y, width, height);
+        }
+      }
+    } else {
+      // Aspect-fit into canvas
+      const src = layer.frame;
+      const srcW = 'videoWidth' in src
+        ? (src as HTMLVideoElement).videoWidth
+        : (src as ImageBitmap).width;
+      const srcH = 'videoHeight' in src
+        ? (src as HTMLVideoElement).videoHeight
+        : (src as ImageBitmap).height;
+
+      if (srcW === 0 || srcH === 0) return;
+
+      const canvasRatio = canvasWidth / canvasHeight;
+      const srcRatio = srcW / srcH;
+      let drawW: number;
+      let drawH: number;
+      if (srcRatio > canvasRatio) {
+        drawW = canvasWidth;
+        drawH = canvasWidth / srcRatio;
+      } else {
+        drawH = canvasHeight;
+        drawW = canvasHeight * srcRatio;
+      }
+      const dx = (canvasWidth - drawW) / 2;
+      const dy = (canvasHeight - drawH) / 2;
+      ctx.drawImage(layer.frame, dx, dy, drawW, drawH);
+    }
+  }
+
+  /**
    * Composite layers bottom-to-top onto the canvas.
    */
   composite(layers: CompositeLayer[]): void {
     this.clear();
 
     for (const layer of layers) {
-      this.ctx.globalAlpha = layer.opacity;
-      this.ctx.filter = layer.filter || 'none';
-      this.ctx.globalCompositeOperation = (layer.blendMode as GlobalCompositeOperation) || 'source-over';
-
-      if (layer.transform) {
-        const { x, y, width, height, rotation, border } = layer.transform;
-        if (rotation) {
-          this.ctx.save();
-          this.ctx.translate(x + width / 2, y + height / 2);
-          this.ctx.rotate((rotation * Math.PI) / 180);
-
-          // Border/shadow for PiP
-          if (border && border.width > 0) {
-            if (border.shadow > 0) {
-              this.ctx.shadowColor = 'rgba(0,0,0,0.5)';
-              this.ctx.shadowBlur = border.shadow;
-              this.ctx.shadowOffsetX = 0;
-              this.ctx.shadowOffsetY = 2;
-            }
-            this.ctx.strokeStyle = border.color;
-            this.ctx.lineWidth = border.width;
-            this.ctx.strokeRect(
-              -width / 2 - border.width / 2,
-              -height / 2 - border.width / 2,
-              width + border.width,
-              height + border.width,
-            );
-            this.ctx.shadowColor = 'transparent';
-            this.ctx.shadowBlur = 0;
-          }
-
-          if (layer.transform.sourceClip) {
-            const { sx, sy, sw, sh } = layer.transform.sourceClip;
-            this.ctx.drawImage(layer.frame, sx, sy, sw, sh, -width / 2, -height / 2, width, height);
-          } else {
-            this.ctx.drawImage(layer.frame, -width / 2, -height / 2, width, height);
-          }
-          this.ctx.restore();
-        } else {
-          // Border/shadow for PiP (no rotation)
-          if (border && border.width > 0) {
-            this.ctx.save();
-            if (border.shadow > 0) {
-              this.ctx.shadowColor = 'rgba(0,0,0,0.5)';
-              this.ctx.shadowBlur = border.shadow;
-              this.ctx.shadowOffsetX = 0;
-              this.ctx.shadowOffsetY = 2;
-            }
-            this.ctx.strokeStyle = border.color;
-            this.ctx.lineWidth = border.width;
-            this.ctx.strokeRect(
-              x - border.width / 2,
-              y - border.width / 2,
-              width + border.width,
-              height + border.width,
-            );
-            this.ctx.restore();
-          }
-
-          if (layer.transform.sourceClip) {
-            const { sx, sy, sw, sh } = layer.transform.sourceClip;
-            this.ctx.drawImage(layer.frame, sx, sy, sw, sh, x, y, width, height);
-          } else {
-            this.ctx.drawImage(layer.frame, x, y, width, height);
-          }
-        }
-      } else {
-        // Aspect-fit into canvas
-        const src = layer.frame;
-        const srcW = 'videoWidth' in src
-          ? (src as HTMLVideoElement).videoWidth
-          : (src as ImageBitmap).width;
-        const srcH = 'videoHeight' in src
-          ? (src as HTMLVideoElement).videoHeight
-          : (src as ImageBitmap).height;
-
-        if (srcW === 0 || srcH === 0) continue;
-
-        const { x, y, width, height } = this.calculateAspectFit(srcW, srcH);
-        this.ctx.drawImage(layer.frame, x, y, width, height);
-      }
+      CanvasCompositor.drawLayer(this.ctx, layer, this.width, this.height);
     }
 
     this.ctx.globalAlpha = 1;
@@ -198,31 +225,5 @@ export class CanvasCompositor {
     this.ctx.fillStyle = '#000';
     this.ctx.fillRect(0, 0, this.width, barHeight);
     this.ctx.fillRect(0, this.height - barHeight, this.width, barHeight);
-  }
-
-  private calculateAspectFit(
-    srcW: number,
-    srcH: number,
-  ): { x: number; y: number; width: number; height: number } {
-    const canvasRatio = this.width / this.height;
-    const srcRatio = srcW / srcH;
-
-    let drawW: number;
-    let drawH: number;
-
-    if (srcRatio > canvasRatio) {
-      // Source is wider — fit to width
-      drawW = this.width;
-      drawH = this.width / srcRatio;
-    } else {
-      // Source is taller — fit to height
-      drawH = this.height;
-      drawW = this.height * srcRatio;
-    }
-
-    const x = (this.width - drawW) / 2;
-    const y = (this.height - drawH) / 2;
-
-    return { x, y, width: drawW, height: drawH };
   }
 }

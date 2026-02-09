@@ -8,6 +8,7 @@ const TRACK_TYPE_COLORS: Record<string, string> = {
   sfx: '#f59e0b',
   subtitle: '#ec4899',
   sticker: '#06b6d4',
+  adjustment: '#f43f5e',
 };
 
 const MINIMAP_HEIGHT = 32;

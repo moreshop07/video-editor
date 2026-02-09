@@ -13,6 +13,7 @@ const TRACK_TYPE_COLORS: Record<string, string> = {
   sfx: '#f59e0b',
   subtitle: '#ec4899',
   sticker: '#06b6d4',
+  adjustment: '#f43f5e',
 };
 
 function formatTimeRuler(ms: number): string {
@@ -179,7 +180,7 @@ export default function Timeline() {
             + {t('timeline.addTrack')}
           </button>
           <div className="absolute left-0 top-full mt-1 bg-[var(--color-surface)] border border-[var(--color-border)] rounded shadow-lg hidden group-hover:block z-20">
-            {(['video', 'audio', 'music', 'sfx', 'subtitle', 'sticker'] as const).map((type) => (
+            {(['video', 'audio', 'music', 'sfx', 'subtitle', 'sticker', 'adjustment'] as const).map((type) => (
               <button
                 key={type}
                 onClick={() => addTrack(type)}

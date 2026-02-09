@@ -160,18 +160,26 @@ export interface Clip {
   cropBottom?: number;
   cropLeft?: number;    // 0–1, fraction of source width
   cropRight?: number;
+  // Nested sequence
+  sequenceId?: string;
 }
 
 export interface Track {
   id: string;
   name: string;
-  type: 'video' | 'audio' | 'music' | 'sfx' | 'subtitle' | 'sticker' | 'text';
+  type: 'video' | 'audio' | 'music' | 'sfx' | 'subtitle' | 'sticker' | 'text' | 'adjustment';
   clips: Clip[];
   muted: boolean;
   locked: boolean;
   height: number;
   visible: boolean;
   audioSettings?: TrackAudioSettings;
+}
+
+export interface NestedSequence {
+  id: string;
+  name: string;
+  tracks: Track[];
 }
 
 // Project data format persisted to backend JSONB
@@ -224,6 +232,21 @@ export interface ProjectData {
         cropBottom?: number;
         cropLeft?: number;
         cropRight?: number;
+        sequenceId?: string;
+      }>;
+    }>;
+    sequences?: Record<string, {
+      id: string;
+      name: string;
+      tracks: Array<{
+        id: string;
+        name: string;
+        type: string;
+        muted: boolean;
+        locked: boolean;
+        height: number;
+        visible: boolean;
+        clips: Array<Record<string, unknown>>;
       }>;
     }>;
     markers?: Array<{
@@ -242,6 +265,7 @@ export interface ProjectData {
 
 export function serializeForSave(state: {
   tracks: Track[];
+  sequences: Record<string, NestedSequence>;
   markers: Marker[];
   zoom: number;
   scrollX: number;
@@ -300,8 +324,43 @@ export function serializeForSave(state: {
           cropBottom: c.cropBottom,
           cropLeft: c.cropLeft,
           cropRight: c.cropRight,
+          sequenceId: c.sequenceId,
         })),
       })),
+      sequences: Object.fromEntries(
+        Object.entries(state.sequences ?? {}).map(([id, seq]) => [
+          id,
+          {
+            id: seq.id,
+            name: seq.name,
+            tracks: seq.tracks.map((st) => ({
+              id: st.id,
+              name: st.name,
+              type: st.type,
+              muted: st.muted,
+              locked: st.locked,
+              height: st.height,
+              visible: st.visible,
+              clips: st.clips.map((sc) => ({
+                id: sc.id,
+                assetId: sc.assetId,
+                startTime: sc.startTime,
+                endTime: sc.endTime,
+                trimStart: sc.trimStart,
+                trimEnd: sc.trimEnd,
+                duration: sc.duration,
+                name: sc.name,
+                type: sc.type,
+                volume: sc.volume ?? 1,
+                filters: sc.filters ?? DEFAULT_CLIP_FILTERS,
+                fadeInMs: sc.fadeInMs ?? 0,
+                fadeOutMs: sc.fadeOutMs ?? 0,
+                sequenceId: sc.sequenceId,
+              })),
+            })),
+          },
+        ]),
+      ),
       markers: state.markers.map((m) => ({
         id: m.id,
         time: m.time,
@@ -319,6 +378,7 @@ export function serializeForSave(state: {
 
 interface TimelineState {
   tracks: Track[];
+  sequences: Record<string, NestedSequence>;
   currentTime: number;
   isPlaying: boolean;
   duration: number;
@@ -396,6 +456,12 @@ interface TimelineState {
   // Serialization
   loadFromProjectData: (data: ProjectData) => void;
 
+  // Sequence operations
+  createSequence: (name: string, tracks: Track[]) => string;
+  removeSequence: (seqId: string) => void;
+  nestSelectedClips: () => void;
+  unnestSequence: (trackId: string, clipId: string) => void;
+
   // Utility
   getTimelineDuration: () => number;
   getClipAt: (trackId: string, time: number) => Clip | undefined;
@@ -409,6 +475,7 @@ const genClipId = () => `clip_${++clipCounter}_${Date.now()}`;
 export const useTimelineStore = create<TimelineState>()(
   temporal(
     (set, get) => ({
+      sequences: {} as Record<string, NestedSequence>,
       tracks: [
         {
           id: 'track_video_default',
@@ -946,6 +1013,183 @@ export const useTimelineStore = create<TimelineState>()(
         return track.clips.find((c) => time >= c.startTime && time < c.endTime);
       },
 
+      createSequence: (name, tracks) => {
+        const seqId = `seq_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+        set((state) => ({
+          sequences: {
+            ...state.sequences,
+            [seqId]: { id: seqId, name, tracks },
+          },
+        }));
+        return seqId;
+      },
+
+      removeSequence: (seqId) => {
+        set((state) => {
+          const { [seqId]: _, ...rest } = state.sequences;
+          // Also remove any clips referencing this sequence
+          const tracks = state.tracks.map((t) => ({
+            ...t,
+            clips: t.clips.filter((c) => c.sequenceId !== seqId),
+          }));
+          return { sequences: rest, tracks };
+        });
+      },
+
+      nestSelectedClips: () => {
+        const state = get();
+        const selectedIds = new Set(state.selectedClipIds);
+        if (selectedIds.size < 2) return;
+
+        // Gather selected clips with their track info
+        const clipsToNest: { clip: Clip; track: Track }[] = [];
+        for (const track of state.tracks) {
+          for (const clip of track.clips) {
+            if (selectedIds.has(clip.id)) {
+              clipsToNest.push({ clip, track });
+            }
+          }
+        }
+        if (clipsToNest.length < 2) return;
+
+        // Determine time bounds
+        const minStart = Math.min(...clipsToNest.map((c) => c.clip.startTime));
+        const maxEnd = Math.max(...clipsToNest.map((c) => c.clip.endTime));
+
+        // Group clips by their original track, offset times to 0
+        const innerTrackMap = new Map<string, { trackInfo: Track; clips: Clip[] }>();
+        for (const { clip, track } of clipsToNest) {
+          if (!innerTrackMap.has(track.id)) {
+            innerTrackMap.set(track.id, { trackInfo: track, clips: [] });
+          }
+          innerTrackMap.get(track.id)!.clips.push({
+            ...clip,
+            startTime: clip.startTime - minStart,
+            endTime: clip.endTime - minStart,
+            trackId: '',
+          });
+        }
+
+        const innerTracks: Track[] = [];
+        for (const [, { trackInfo, clips }] of innerTrackMap) {
+          const trackId = genTrackId();
+          innerTracks.push({
+            id: trackId,
+            name: trackInfo.name,
+            type: trackInfo.type,
+            clips: clips.map((c) => ({ ...c, trackId })),
+            muted: false,
+            locked: false,
+            height: trackInfo.height,
+            visible: true,
+          });
+        }
+
+        const seqId = `seq_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+        const seqName = `Nested Sequence ${Object.keys(state.sequences).length + 1}`;
+
+        // Remove selected clips from their tracks
+        const updatedTracks = state.tracks.map((track) => ({
+          ...track,
+          clips: track.clips.filter((c) => !selectedIds.has(c.id)),
+        }));
+
+        // Place nested clip on the first video track (or first available)
+        const targetTrack = updatedTracks.find((t) => t.type === 'video') || updatedTracks[0];
+        const nestedClipId = genClipId();
+        const nestedClip: Clip = {
+          id: nestedClipId,
+          assetId: '',
+          trackId: targetTrack.id,
+          startTime: minStart,
+          endTime: maxEnd,
+          trimStart: 0,
+          trimEnd: 0,
+          duration: maxEnd - minStart,
+          name: seqName,
+          type: 'video',
+          filters: DEFAULT_CLIP_FILTERS,
+          fadeInMs: 0,
+          fadeOutMs: 0,
+          sequenceId: seqId,
+        };
+
+        set({
+          tracks: updatedTracks.map((t) =>
+            t.id === targetTrack.id
+              ? { ...t, clips: [...t.clips, nestedClip] }
+              : t,
+          ),
+          sequences: {
+            ...state.sequences,
+            [seqId]: { id: seqId, name: seqName, tracks: innerTracks },
+          },
+          selectedClipIds: [nestedClipId],
+        });
+      },
+
+      unnestSequence: (trackId, clipId) => {
+        const state = get();
+        const track = state.tracks.find((t) => t.id === trackId);
+        const clip = track?.clips.find((c) => c.id === clipId);
+        if (!clip?.sequenceId) return;
+
+        const seq = state.sequences[clip.sequenceId];
+        if (!seq) return;
+
+        const offsetMs = clip.startTime;
+
+        // Merge inner tracks back: for each inner track, find or create a matching track in the parent
+        let updatedTracks = state.tracks.map((t) => ({
+          ...t,
+          clips: t.id === trackId
+            ? t.clips.filter((c) => c.id !== clipId)
+            : [...t.clips],
+        }));
+
+        for (const innerTrack of seq.tracks) {
+          // Find existing track of same type
+          let targetTrack = updatedTracks.find((t) => t.type === innerTrack.type);
+          if (!targetTrack) {
+            const newTrackId = genTrackId();
+            targetTrack = {
+              id: newTrackId,
+              name: innerTrack.name,
+              type: innerTrack.type,
+              clips: [],
+              muted: false,
+              locked: false,
+              height: innerTrack.height,
+              visible: true,
+            };
+            updatedTracks = [...updatedTracks, targetTrack];
+          }
+
+          const restoredClips = innerTrack.clips.map((ic) => ({
+            ...ic,
+            id: genClipId(),
+            trackId: targetTrack!.id,
+            startTime: ic.startTime + offsetMs,
+            endTime: ic.endTime + offsetMs,
+          }));
+
+          updatedTracks = updatedTracks.map((t) =>
+            t.id === targetTrack!.id
+              ? { ...t, clips: [...t.clips, ...restoredClips] }
+              : t,
+          );
+        }
+
+        // Remove the sequence
+        const { [clip.sequenceId]: _, ...restSequences } = state.sequences;
+
+        set({
+          tracks: updatedTracks,
+          sequences: restSequences,
+          selectedClipIds: [],
+        });
+      },
+
       loadFromProjectData: (data: ProjectData) => {
         if (!data?.timeline?.tracks) return;
         set({
@@ -999,8 +1243,44 @@ export const useTimelineStore = create<TimelineState>()(
               cropBottom: c.cropBottom,
               cropLeft: c.cropLeft,
               cropRight: c.cropRight,
+              sequenceId: (c as Record<string, unknown>).sequenceId as string | undefined,
             })),
           })),
+          sequences: Object.fromEntries(
+            Object.entries(data.timeline.sequences ?? {}).map(([id, seq]) => [
+              id,
+              {
+                id: seq.id,
+                name: seq.name,
+                tracks: seq.tracks.map((st) => ({
+                  id: st.id,
+                  name: st.name,
+                  type: st.type as Track['type'],
+                  muted: st.muted,
+                  locked: st.locked,
+                  height: st.height,
+                  visible: st.visible,
+                  clips: (st.clips as Array<Record<string, unknown>>).map((sc) => ({
+                    id: sc.id as string,
+                    assetId: sc.assetId as string,
+                    trackId: st.id,
+                    startTime: sc.startTime as number,
+                    endTime: sc.endTime as number,
+                    trimStart: sc.trimStart as number,
+                    trimEnd: sc.trimEnd as number,
+                    duration: sc.duration as number,
+                    name: sc.name as string,
+                    type: sc.type as string,
+                    volume: (sc.volume as number) ?? 1,
+                    filters: (sc.filters as ClipFilters) ?? DEFAULT_CLIP_FILTERS,
+                    fadeInMs: (sc.fadeInMs as number) ?? 0,
+                    fadeOutMs: (sc.fadeOutMs as number) ?? 0,
+                    sequenceId: sc.sequenceId as string | undefined,
+                  })),
+                })),
+              } as NestedSequence,
+            ]),
+          ),
           markers: (data.timeline.markers ?? []).map((m) => ({
             id: m.id,
             time: m.time,
@@ -1030,6 +1310,7 @@ export const useTimelineStore = create<TimelineState>()(
       partialize: (state) => ({
         // Only track content state, not transient UI state
         tracks: state.tracks,
+        sequences: state.sequences,
         markers: state.markers,
         zoom: state.zoom,
         scrollX: state.scrollX,
