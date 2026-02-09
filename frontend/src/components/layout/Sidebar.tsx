@@ -20,6 +20,7 @@ import TemplateBrowserPanel from "@/components/templates/TemplateBrowserPanel";
 import CropZoomPanel from "@/components/editor/panels/CropZoomPanel";
 import MarkersPanel from "@/components/editor/panels/MarkersPanel";
 import ScreenRecorderPanel from "@/components/recorder/ScreenRecorderPanel";
+import MotionTrackingPanel from "@/components/motiontracking/MotionTrackingPanel";
 
 type SidebarTab =
   | "assets"
@@ -41,7 +42,8 @@ type SidebarTab =
   | "templates"
   | "cropZoom"
   | "markers"
-  | "record";
+  | "record"
+  | "motionTracking";
 
 interface TabConfig {
   key: SidebarTab;
@@ -70,6 +72,7 @@ const tabs: TabConfig[] = [
   { key: "cropZoom", labelKey: "cropZoom.title", icon: "M4 4h7V2H2v9h2V4zm13 0v7h2V2h-9v2h7zM4 20v-7H2v9h9v-2H4zm16 0h-7v2h9v-9h-2v7z" },
   { key: "markers", labelKey: "markers.title", icon: "M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" },
   { key: "record", labelKey: "record.title", icon: "M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" },
+  { key: "motionTracking", labelKey: "motionTracking.title", icon: "M12 12m-3 0a3 3 0 106 0 3 3 0 10-6 0M12 2v4m0 12v4m10-10h-4M6 12H2m15.07-5.07l-2.83 2.83M9.76 14.24l-2.83 2.83m9.9 0l-2.83-2.83M9.76 9.76L6.93 6.93" },
 ];
 
 function SidebarComponent() {
@@ -118,6 +121,8 @@ function SidebarComponent() {
         return <MarkersPanel />;
       case "record":
         return <ScreenRecorderPanel />;
+      case "motionTracking":
+        return <MotionTrackingPanel />;
       default:
         return null;
     }

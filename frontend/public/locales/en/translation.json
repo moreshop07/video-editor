@@ -974,5 +974,32 @@
     "crushBlack": "Crush Black",
     "crossProcess": "Cross Process",
     "warmShadows": "Warm Shadows"
+  },
+  "motionTracking": {
+    "title": "Motion Tracking",
+    "sourceClip": "Source Clip",
+    "selectSourceClip": "Select a video clip to track",
+    "mode": "Tracking Mode",
+    "point": "Point",
+    "region": "Region",
+    "pointDesc": "Track position only",
+    "regionDesc": "Track position, scale & rotation",
+    "sampleInterval": "Sample Every N Frames",
+    "selectRegion": "Select Region",
+    "selectRegionHint": "Click and drag on the preview",
+    "startTracking": "Start Tracking",
+    "cancelTracking": "Cancel",
+    "tracking": "Tracking...",
+    "completed": "Tracking Complete",
+    "smoothing": "Smoothing",
+    "targetClip": "Apply To",
+    "selectTargetClip": "Select target clip",
+    "offsetX": "Offset X",
+    "offsetY": "Offset Y",
+    "scaleMultiplier": "Scale Multiplier",
+    "applyKeyframes": "Apply Keyframes",
+    "applied": "Keyframes applied",
+    "reset": "Reset",
+    "noVideoClips": "No video clips on timeline"
   }
 }

@@ -5,6 +5,7 @@ import { useSubtitleStore } from '@/store/subtitleStore';
 import { useAudioMixerStore } from '@/store/audioMixerStore';
 import { CompositorEngine } from '@/engine';
 import type { RenderableTrack } from '@/engine';
+import ROISelector from '@/components/motiontracking/ROISelector';
 
 function formatTime(ms: number): string {
   const totalSec = Math.floor(ms / 1000);
@@ -340,6 +341,8 @@ export default function VideoPreview() {
               {t('preview.noContent')}
             </div>
           )}
+          {/* Motion tracking ROI overlay */}
+          <ROISelector canvasWidth={canvasSize.width} canvasHeight={canvasSize.height} />
           {/* Guides toggle dropdown */}
           <GuidesDropdown guides={guides} setGuides={setGuides} />
         </div>

@@ -974,5 +974,32 @@
     "crushBlack": "壓暗黑色",
     "crossProcess": "交叉沖印",
     "warmShadows": "暖色陰影"
+  },
+  "motionTracking": {
+    "title": "動態追蹤",
+    "sourceClip": "來源片段",
+    "selectSourceClip": "選擇要追蹤的影片片段",
+    "mode": "追蹤模式",
+    "point": "點追蹤",
+    "region": "區域追蹤",
+    "pointDesc": "僅追蹤位置",
+    "regionDesc": "追蹤位置、縮放與旋轉",
+    "sampleInterval": "每 N 幀取樣",
+    "selectRegion": "選擇區域",
+    "selectRegionHint": "在預覽畫面上點擊拖曳",
+    "startTracking": "開始追蹤",
+    "cancelTracking": "取消",
+    "tracking": "追蹤中...",
+    "completed": "追蹤完成",
+    "smoothing": "平滑度",
+    "targetClip": "套用至",
+    "selectTargetClip": "選擇目標片段",
+    "offsetX": "X 偏移",
+    "offsetY": "Y 偏移",
+    "scaleMultiplier": "縮放倍率",
+    "applyKeyframes": "套用關鍵影格",
+    "applied": "關鍵影格已套用",
+    "reset": "重設",
+    "noVideoClips": "時間軸上沒有影片片段"
   }
 }
