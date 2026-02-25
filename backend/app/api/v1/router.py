@@ -19,6 +19,7 @@ from app.api.v1.projects import router as projects_router
 from app.api.v1.stickers import router as stickers_router
 from app.api.v1.subtitles import router as subtitles_router
 from app.api.v1.tts import router as tts_router
+from app.api.v1.script_director import router as script_director_router
 from app.api.v1.websocket import router as websocket_router
 
 api_v1_router = APIRouter()
@@ -41,3 +42,4 @@ api_v1_router.include_router(ai_video_router)
 api_v1_router.include_router(collaboration_router)
 api_v1_router.include_router(smart_edit_router)
 api_v1_router.include_router(templates_router)
+api_v1_router.include_router(script_director_router)

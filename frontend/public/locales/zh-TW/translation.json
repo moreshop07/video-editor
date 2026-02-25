@@ -100,7 +100,8 @@
     "invert": "反轉",
     "opacity": "不透明度",
     "speed": "速度",
-    "speedLabel": "速度"
+    "speedLabel": "速度",
+    "vignette": "暗角"
   },
   "export": {
     "completed": "匯出完成",
@@ -1001,5 +1002,17 @@
     "applied": "關鍵影格已套用",
     "reset": "重設",
     "noVideoClips": "時間軸上沒有影片片段"
+  },
+  "plugins": {
+    "title": "外掛模組",
+    "installed": "已安裝外掛",
+    "enabled": "已啟用",
+    "disabled": "已停用",
+    "noPlugins": "尚未安裝外掛",
+    "version": "版本",
+    "author": "作者"
+  },
+  "scriptDirector": {
+    "title": "AI 腳本導演"
   }
 }

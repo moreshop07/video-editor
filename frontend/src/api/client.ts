@@ -319,4 +319,26 @@ export const collaborationApi = {
     apiClient.delete(`/projects/${projectId}/collaborators/${userId}`),
 };
 
+// ---- Script Director API ----
+export const scriptDirectorApi = {
+  generate: (data: {
+    draft: string;
+    duration?: string;
+    generate_both?: boolean;
+    hook_count?: number;
+    target_audience?: string;
+  }) => apiClient.post('/script-director/generate', data),
+
+  regenerateHooks: (data: {
+    draft: string;
+    count?: number;
+    level?: 'S' | 'A' | 'B';
+  }) => apiClient.post('/script-director/hooks', data),
+
+  optimizeCta: (data: {
+    script_text: string;
+    target_action?: string;
+  }) => apiClient.post('/script-director/cta', data),
+};
+
 export default apiClient;

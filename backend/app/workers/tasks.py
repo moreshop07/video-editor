@@ -2315,3 +2315,95 @@ def sound_describe_task(self, job_id: int) -> dict:
         raise self.retry(exc=exc, countdown=60)
     finally:
         session.close()
+
+
+# =========================================================================
+# Task: generate_script_director
+# =========================================================================
+
+@celery_app.task(
+    name="app.workers.tasks.generate_script_director",
+    bind=True,
+    max_retries=2,
+)
+def generate_script_director(self, job_id: int) -> dict:
+    """AI 腳本導演：草稿 → 爆款短影音腳本，結果存入 ProcessingJob.result。"""
+    import asyncio
+
+    from app.services.script_director import (
+        ScriptDirectorService,
+        ScriptGenerateRequest,
+    )
+
+    session = get_sync_session()
+    job: ProcessingJob | None = None
+    try:
+        job = session.get(ProcessingJob, job_id)
+        if job is None:
+            raise ValueError(f"Job {job_id} not found")
+
+        _update_job_status(session, job, JobStatus.PROCESSING.value, progress=5.0)
+        _publish_progress(job_id, 5.0, detail="AI 導演正在分析草稿...")
+
+        input_params = job.input_params or {}
+        draft = input_params.get("draft", "")
+        if not draft:
+            raise ValueError("input_params 缺少 draft 欄位")
+
+        request = ScriptGenerateRequest(
+            draft=draft,
+            duration=input_params.get("duration"),
+            generate_both=input_params.get("generate_both", True),
+            hook_count=input_params.get("hook_count", 3),
+            target_audience=input_params.get("target_audience"),
+        )
+
+        _publish_progress(job_id, 15.0, detail="AI 導演正在生成腳本...")
+
+        service = ScriptDirectorService()
+        loop = asyncio.new_event_loop()
+        try:
+            result = loop.run_until_complete(service.generate_script(request))
+        finally:
+            loop.close()
+
+        _publish_progress(job_id, 90.0, detail="腳本生成完成，整理結果...")
+
+        result_dict = result.model_dump(mode="json")
+
+        _update_job_status(
+            session,
+            job,
+            JobStatus.COMPLETED.value,
+            progress=100.0,
+            result={
+                "script": result_dict,
+                "hooks_count": len(result.hooks),
+                "scripts_count": len(result.scripts),
+            },
+        )
+
+        logger.info(
+            "generate_script_director job %s: %d hooks, %d versions",
+            job_id,
+            len(result.hooks),
+            len(result.scripts),
+        )
+        return {"job_id": job_id, "hooks": len(result.hooks), "scripts": len(result.scripts)}
+
+    except Exception as exc:
+        session.rollback()
+        logger.exception("generate_script_director failed for job %s", job_id)
+        try:
+            if job:
+                _update_job_status(
+                    session,
+                    job,
+                    JobStatus.FAILED.value,
+                    error_message=str(exc)[:2000],
+                )
+        except Exception:
+            logger.exception("Failed to update job status to FAILED")
+        raise self.retry(exc=exc, countdown=10)
+    finally:
+        session.close()

@@ -100,7 +100,8 @@
     "invert": "Invert",
     "opacity": "Opacity",
     "speed": "Speed",
-    "speedLabel": "Speed"
+    "speedLabel": "Speed",
+    "vignette": "Vignette"
   },
   "export": {
     "completed": "Export Completed",
@@ -1001,5 +1002,17 @@
     "applied": "Keyframes applied",
     "reset": "Reset",
     "noVideoClips": "No video clips on timeline"
+  },
+  "plugins": {
+    "title": "Plugins",
+    "installed": "Installed Plugins",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "noPlugins": "No plugins installed",
+    "version": "Version",
+    "author": "Author"
+  },
+  "scriptDirector": {
+    "title": "AI Script Director"
   }
 }

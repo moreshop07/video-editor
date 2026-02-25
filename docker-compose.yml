@@ -79,6 +79,7 @@ services:
       MINIO_BUCKET_THUMBNAILS: video-editor-thumbnails
       MINIO_USE_SSL: "false"
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       SECRET_KEY: dev-secret-key-change-in-production
       CORS_ORIGINS: '["http://localhost:5173","http://localhost:3000"]'
     depends_on:
@@ -131,6 +132,7 @@ services:
       MINIO_BUCKET_THUMBNAILS: video-editor-thumbnails
       MINIO_USE_SSL: "false"
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy

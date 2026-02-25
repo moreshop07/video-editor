@@ -20,6 +20,7 @@ celery_app.conf.task_routes = {
     "app.workers.tasks.transcribe_audio": {"queue": "ai"},
     "app.workers.tasks.translate_subtitles": {"queue": "ai"},
     "app.workers.tasks.match_music": {"queue": "ai"},
+    "app.workers.tasks.generate_script_director": {"queue": "ai"},
     "app.workers.tasks.process_asset_metadata": {"queue": "asset"},
 }
 
