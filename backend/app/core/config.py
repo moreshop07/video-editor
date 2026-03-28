@@ -59,6 +59,9 @@ class Settings(BaseSettings):
     # --- PiAPI (AI video generation) ----------------------------------------
     PIAPI_API_KEY: Optional[str] = None
 
+    # --- HeyGen (video translation) -----------------------------------------
+    HEYGEN_API_KEY: Optional[str] = None
+
     model_config = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",

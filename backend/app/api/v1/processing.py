@@ -11,8 +11,8 @@ from app.core.security import get_current_user
 from app.models.processing import JobStatus, JobType, ProcessingJob
 from app.models.project import Project
 from app.models.user import User
-from app.schemas.processing import AudioProcessRequest, ExportRequest, JobResponse
-from app.workers.tasks import export_video, process_audio
+from app.schemas.processing import AudioProcessRequest, ExportRequest, FullPipelineRequest, JobResponse
+from app.workers.tasks import export_video, full_pipeline, process_audio
 
 router = APIRouter(prefix="/processing", tags=["processing"])
 
@@ -63,6 +63,64 @@ async def start_export(
     await db.refresh(job)
 
     task = export_video.delay(job.id)
+    job.celery_task_id = task.id
+    await db.flush()
+    await db.refresh(job)
+
+    return job
+
+
+# ---------------------------------------------------------------------------
+# POST /processing/full-pipeline (一鍵全流程)
+# ---------------------------------------------------------------------------
+@router.post(
+    "/full-pipeline",
+    response_model=JobResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def start_full_pipeline(
+    body: FullPipelineRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> ProcessingJob:
+    """One-click full pipeline: upload → transcribe → translate → export.
+
+    Chains: Whisper辨識 → Claude翻譯 → 9:16剪輯 → 燒雙語字幕 → 輸出MP4
+    → 非同步觸發英文版。
+    """
+    # Verify project ownership
+    result = await db.execute(
+        select(Project).where(
+            Project.id == body.project_id,
+            Project.user_id == current_user.id,
+        )
+    )
+    if result.scalar_one_or_none() is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Project not found",
+        )
+
+    job = ProcessingJob(
+        user_id=current_user.id,
+        project_id=body.project_id,
+        job_type="full_pipeline",
+        status=JobStatus.PENDING.value,
+        input_params={
+            "asset_object_path": body.asset_object_path,
+            "project_id": body.project_id,
+            "language": body.language,
+            "target_language": body.target_language,
+            "include_english_export": body.include_english_export,
+            "subtitle_role": body.subtitle_role,
+            "subtitle_tier": body.subtitle_tier,
+        },
+    )
+    db.add(job)
+    await db.flush()
+    await db.refresh(job)
+
+    task = full_pipeline.delay(job.id)
     job.celery_task_id = task.id
     await db.flush()
     await db.refresh(job)

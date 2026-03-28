@@ -1,5 +1,5 @@
 # ---- Stage 1: Builder ----
-FROM python:3.12-slim AS builder
+FROM python:3.12-slim-bookworm AS builder
 
 WORKDIR /build
 
@@ -8,27 +8,37 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
   && rm -rf /var/lib/apt/lists/*
 
-COPY pyproject.toml ./
-# Install production dependencies only (no dev extras)
-RUN pip install --no-cache-dir --prefix=/install .
+COPY pyproject.toml torch-2.10.0+cpu-cp312-cp312-manylinux_2_28_x86_64.whl ./
+# Install pre-downloaded CPU-only PyTorch
+RUN pip install --no-cache-dir --prefix=/install torch-2.10.0+cpu-cp312-cp312-manylinux_2_28_x86_64.whl
+# Install remaining production dependencies (torch already satisfied)
+ENV PYTHONPATH=/install/lib/python3.12/site-packages
+RUN pip install --no-cache-dir --prefix=/install \
+    --timeout 300 --retries 3 \
+    --extra-index-url https://download.pytorch.org/whl/cpu .
 
 COPY app/ ./app/
 
 # ---- Stage 2: Runtime ----
-FROM python:3.12-slim
+FROM python:3.12-slim-bookworm
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ffmpeg \
-    libpq5 \
-  && rm -rf /var/lib/apt/lists/*
+# Copy pre-extracted static ffmpeg/ffprobe binaries
+COPY ffmpeg-bin /usr/local/bin/ffmpeg
+COPY ffprobe-bin /usr/local/bin/ffprobe
+
+# Install libpq5 for PostgreSQL client
+RUN apt-get update && apt-get install -y --no-install-recommends libpq5 && \
+    rm -rf /var/lib/apt/lists/*
 
 # Copy installed packages from builder
 COPY --from=builder /install /usr/local
 
-# Copy application code
+# Copy application code + alembic
 COPY app/ ./app/
+COPY alembic/ ./alembic/
+COPY alembic.ini ./
 
 # Create non-root user
 RUN useradd --create-home appuser
@@ -36,4 +46,4 @@ USER appuser
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+CMD ["sh", "-c", "alembic upgrade head 2>/dev/null || echo 'Alembic migration skipped'; uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4"]

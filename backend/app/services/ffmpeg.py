@@ -210,6 +210,103 @@ def _generate_temp_srt(
     return tmpfile.name
 
 
+def _build_drawtext_subtitles(
+    segments: list[dict[str, Any]],
+    input_label: str,
+    preset: Any = None,
+    role: str = "main",
+    tier: str = "subtitle",
+    include_translated: bool = True,
+) -> list[str]:
+    """Build drawtext filter chain for bilingual subtitles.
+
+    Uses drawtext for precise shadow control matching Filmora settings:
+    - shadowx/shadowy from angle + distance
+    - shadowcolor with opacity
+
+    For bilingual: Chinese line on top, English line below.
+    Each segment gets an ``enable='between(t,start,end)'`` gate.
+
+    Returns a list of filter strings to append to filter_parts.
+    """
+    from app.core.subtitle_preset import (
+        DEFAULT_PRESET, FONT_SIZES, ROLE_COLORS,
+    )
+    if preset is None:
+        preset = DEFAULT_PRESET
+
+    color = ROLE_COLORS.get(role, ROLE_COLORS["main"])
+    size = FONT_SIZES.get(tier, FONT_SIZES["subtitle"])
+
+    shadow = preset.shadow
+    font_file = preset.find_font_file()
+    # Build font argument: fontfile if found, otherwise fontname fallback
+    font_arg = f"fontfile='{font_file}'" if font_file else f"font='{preset.font_family}'"
+
+    filters: list[str] = []
+    label_in = input_label
+    counter = 0
+
+    for seg in segments:
+        start_sec = seg["start_ms"] / 1000.0
+        end_sec = seg["end_ms"] / 1000.0
+        zh_text = seg.get("text", "")
+        en_text = seg.get("translated_text", "")
+
+        if not zh_text:
+            continue
+
+        enable = f"enable='between(t,{start_sec:.3f},{end_sec:.3f})'"
+
+        # --- Chinese line (main subtitle) ---
+        escaped_zh = zh_text.replace("'", "'\\''").replace(":", "\\:").replace("\\", "\\\\")
+        label_out = f"dt{counter}"
+        zh_filter = (
+            f"[{label_in}]drawtext="
+            f"{font_arg}"
+            f":text='{escaped_zh}'"
+            f":fontsize={size.drawtext_size}"
+            f":fontcolor={color.color_hex}"
+            f":shadowx={shadow.shadowx}"
+            f":shadowy={shadow.shadowy}"
+            f":shadowcolor={shadow.shadowcolor_ffmpeg}"
+            f":borderw=0"
+            f":x=(w-text_w)/2"
+            f":y=h-{preset.margin_bottom_zh}-text_h"
+            f":{enable}"
+            f"[{label_out}]"
+        )
+        filters.append(zh_filter)
+        label_in = label_out
+        counter += 1
+
+        # --- English line (below Chinese) ---
+        if include_translated and en_text:
+            escaped_en = en_text.replace("'", "'\\''").replace(":", "\\:").replace("\\", "\\\\")
+            en_font_size = max(24, int(size.drawtext_size * 0.65))
+            label_out = f"dt{counter}"
+            en_filter = (
+                f"[{label_in}]drawtext="
+                f"{font_arg}"
+                f":text='{escaped_en}'"
+                f":fontsize={en_font_size}"
+                f":fontcolor={color.color_hex}"
+                f":shadowx={shadow.shadowx}"
+                f":shadowy={shadow.shadowy}"
+                f":shadowcolor={shadow.shadowcolor_ffmpeg}"
+                f":borderw=0"
+                f":x=(w-text_w)/2"
+                f":y=h-{preset.margin_bottom_en}-text_h"
+                f":{enable}"
+                f"[{label_out}]"
+            )
+            filters.append(en_filter)
+            label_in = label_out
+            counter += 1
+
+    return filters
+
+
 def build_export_command(
     project_data: dict[str, Any],
     output_path: str,
@@ -419,21 +516,56 @@ def build_export_command(
 
     # Subtitle burn-in (if subtitle segments provided)
     subtitle_segments = project_data.get("subtitle_segments")
+    subtitle_method = project_data.get("subtitle_method", "srt")
     srt_path: str | None = None
+    drawtext_used = False
+
     if subtitle_segments and video_overlays:
+        subtitle_role = project_data.get("subtitle_role", "main")
+        subtitle_tier = project_data.get("subtitle_tier", "subtitle")
         include_translated = project_data.get("subtitle_bilingual", True)
-        srt_path = _generate_temp_srt(subtitle_segments, include_translated)
-        # Escape path for FFmpeg filter (colons, backslashes, single quotes)
-        escaped_path = srt_path.replace("\\", "\\\\").replace(":", "\\:")
-        style = (
-            "FontSize=24,PrimaryColour=&H00FFFFFF,"
-            "OutlineColour=&H00000000,Outline=2,"
-            "FontName=Noto Sans TC"
-        )
-        filter_parts.append(
-            f"[{current_video_label}]subtitles=filename='{escaped_path}'"
-            f":force_style='{style}'[outsv]"
-        )
+
+        if subtitle_method == "drawtext":
+            # --- drawtext: precise shadow control (Filmora-matching) ---
+            try:
+                from app.core.subtitle_preset import DEFAULT_PRESET
+                drawtext_filters = _build_drawtext_subtitles(
+                    subtitle_segments,
+                    current_video_label,
+                    preset=DEFAULT_PRESET,
+                    role=subtitle_role,
+                    tier=subtitle_tier,
+                    include_translated=include_translated,
+                )
+                if drawtext_filters:
+                    filter_parts.extend(drawtext_filters)
+                    # Extract last output label from the last filter
+                    last_filter = drawtext_filters[-1]
+                    current_video_label = last_filter.rsplit("[", 1)[-1].rstrip("]")
+                    drawtext_used = True
+            except ImportError:
+                logger.warning("subtitle_preset not found, falling back to SRT")
+                subtitle_method = "srt"
+
+        if subtitle_method == "srt":
+            # --- SRT/ASS fallback ---
+            srt_path = _generate_temp_srt(subtitle_segments, include_translated)
+            escaped_path = srt_path.replace("\\", "\\\\").replace(":", "\\:")
+            try:
+                from app.core.subtitle_preset import DEFAULT_PRESET
+                style = DEFAULT_PRESET.get_ass_style(
+                    role=subtitle_role, tier=subtitle_tier,
+                )
+            except ImportError:
+                style = (
+                    "FontSize=42,PrimaryColour=&H00FFFFFF,"
+                    "OutlineColour=&H00000000,Outline=0,Shadow=5,"
+                    "FontName=Noto Sans TC"
+                )
+            filter_parts.append(
+                f"[{current_video_label}]subtitles=filename='{escaped_path}'"
+                f":force_style='{style}'[outsv]"
+            )
 
     # Concatenate / mix audio segments
     if audio_parts:
@@ -452,7 +584,12 @@ def build_export_command(
         cmd.extend(["-filter_complex", ";".join(filter_parts)])
 
     if video_overlays:
-        video_label = "[outsv]" if srt_path else f"[{current_video_label}]"
+        if drawtext_used:
+            video_label = f"[{current_video_label}]"
+        elif srt_path:
+            video_label = "[outsv]"
+        else:
+            video_label = f"[{current_video_label}]"
         cmd.extend(["-map", video_label])
     if audio_parts:
         cmd.extend(["-map", "[outa]"])

@@ -363,6 +363,34 @@ def export_video(self, job_id: int) -> dict:
                 result={"download_url": download_url, "object_path": f"/{settings.MINIO_BUCKET_EXPORTS}/{export_object}"},
             )
 
+            # --- English version sidecar (async, non-blocking) ---
+            # Priority: free (Edge TTS + Claude) by default,
+            #           HeyGen only if HEYGEN_API_KEY is set and preferred.
+            en_export_prefix = f"exports/{job.user_id}/{job_id}"
+            try:
+                if settings.HEYGEN_API_KEY and project_data.get("en_export_method") == "heygen":
+                    heygen_export_en.delay(
+                        video_url=download_url,
+                        output_object_prefix=en_export_prefix,
+                        title=f"job-{job_id}-en",
+                    )
+                    logger.info("HeyGen EN sidecar triggered for job %s", job_id)
+                else:
+                    # Collect subtitle segments from project data
+                    sub_segs = project_data.get("subtitle_segments", [])
+                    if sub_segs:
+                        free_export_en.delay(
+                            source_video_object=export_object,
+                            subtitle_segments=sub_segs,
+                            output_object_prefix=en_export_prefix,
+                        )
+                        logger.info("Free EN sidecar triggered for job %s", job_id)
+            except Exception:
+                logger.warning(
+                    "Failed to trigger EN sidecar for job %s",
+                    job_id, exc_info=True,
+                )
+
             return {"job_id": job_id, "download_url": download_url}
 
         finally:
@@ -383,6 +411,145 @@ def export_video(self, job_id: int) -> dict:
         raise self.retry(exc=exc, countdown=60)
     finally:
         session.close()
+
+
+# =========================================================================
+# Task: free_export_en (Free English export — Edge TTS + Claude)
+# =========================================================================
+
+@celery_app.task(
+    name="app.workers.tasks.free_export_en",
+    bind=True,
+    max_retries=1,
+    autoretry_for=(),
+)
+def free_export_en(
+    self,
+    source_video_object: str,
+    subtitle_segments: list[dict],
+    output_object_prefix: str,
+    tts_voice: str | None = None,
+) -> dict:
+    """Non-blocking sidecar: produce an English-dubbed version using
+    Edge TTS + Claude translation. Free, no paid API needed.
+
+    Failure never affects the main export pipeline.
+    """
+    from app.services.free_en_export import export_english_version
+
+    output_dir = tempfile.mkdtemp(prefix="free_en_")
+    try:
+        # Download source video from MinIO to local temp
+        source_tmp = os.path.join(output_dir, "source_zh.mp4")
+        obj = minio_client().get_object(
+            settings.MINIO_BUCKET_EXPORTS, source_video_object,
+        )
+        with open(source_tmp, "wb") as f:
+            for chunk in obj.stream(8192):
+                f.write(chunk)
+        obj.close()
+        obj.release_conn()
+
+        result = export_english_version(
+            source_video=source_tmp,
+            subtitle_segments=subtitle_segments,
+            output_dir=output_dir,
+            tts_voice=tts_voice,
+        )
+
+        if result["status"] == "success" and result["output_path"]:
+            en_object = f"{output_object_prefix}/main_en.mp4"
+            with open(result["output_path"], "rb") as f:
+                upload_file(
+                    settings.MINIO_BUCKET_EXPORTS,
+                    en_object,
+                    f.read(),
+                    content_type="video/mp4",
+                )
+            en_url = get_presigned_url(
+                settings.MINIO_BUCKET_EXPORTS, en_object, expires=86400,
+            )
+            logger.info("Free EN export uploaded: %s", en_url)
+            result["download_url"] = en_url
+            result["object_path"] = f"/{settings.MINIO_BUCKET_EXPORTS}/{en_object}"
+
+        return result
+
+    except Exception:
+        logger.exception("free_export_en failed (non-fatal)")
+        return {
+            "status": "failed",
+            "output_path": None,
+            "error": "see worker logs",
+        }
+    finally:
+        import shutil
+        shutil.rmtree(output_dir, ignore_errors=True)
+
+
+# =========================================================================
+# Task: heygen_export_en (HeyGen sidecar — paid backup)
+# =========================================================================
+
+@celery_app.task(
+    name="app.workers.tasks.heygen_export_en",
+    bind=True,
+    max_retries=1,
+    autoretry_for=(),  # don't auto-retry; failures are logged, not fatal
+)
+def heygen_export_en(
+    self,
+    video_url: str,
+    output_object_prefix: str,
+    title: str | None = None,
+) -> dict:
+    """Non-blocking sidecar: send a finished MP4 to HeyGen for English
+    video translation, poll for completion, and upload the result to MinIO.
+
+    This task runs independently — failure here never affects the main
+    export pipeline.
+    """
+    from app.services.heygen_export import heygen_translate
+
+    output_dir = tempfile.mkdtemp(prefix="heygen_")
+    try:
+        result = heygen_translate(
+            video_url=video_url,
+            output_dir=output_dir,
+            title=title,
+        )
+
+        if result["status"] == "success" and result["output_path"]:
+            # Upload English version to MinIO
+            en_object = f"{output_object_prefix}/main_en_heygen.mp4"
+            with open(result["output_path"], "rb") as f:
+                upload_file(
+                    settings.MINIO_BUCKET_EXPORTS,
+                    en_object,
+                    f.read(),
+                    content_type="video/mp4",
+                )
+            en_url = get_presigned_url(
+                settings.MINIO_BUCKET_EXPORTS, en_object, expires=86400,
+            )
+            logger.info("HeyGen English export uploaded: %s", en_url)
+            result["download_url"] = en_url
+            result["object_path"] = f"/{settings.MINIO_BUCKET_EXPORTS}/{en_object}"
+
+        return result
+
+    except Exception:
+        logger.exception("heygen_export_en failed (non-fatal)")
+        return {
+            "status": "failed",
+            "output_path": None,
+            "translate_id": None,
+            "error": "see worker logs",
+        }
+    finally:
+        # Cleanup temp dir
+        import shutil
+        shutil.rmtree(output_dir, ignore_errors=True)
 
 
 # =========================================================================
@@ -2407,3 +2574,256 @@ def generate_script_director(self, job_id: int) -> dict:
         raise self.retry(exc=exc, countdown=10)
     finally:
         session.close()
+
+
+# =========================================================================
+# Task: full_pipeline (一鍵全流程)
+# =========================================================================
+
+@celery_app.task(
+    name="app.workers.tasks.full_pipeline",
+    bind=True,
+    max_retries=1,
+)
+def full_pipeline(self, job_id: int) -> dict:
+    """One-click pipeline: asset → transcribe → translate → export → EN sidecar.
+
+    input_params expected::
+
+        {
+            "asset_object_path": "/{bucket}/{object}",   # source video in MinIO
+            "project_id": int,
+            "language": "zh",                             # source language
+            "target_language": "en",                      # translation target
+            "include_english_export": true,                # trigger EN sidecar
+            "export_format": "mp4",
+            "subtitle_role": "main",                      # preset color role
+            "subtitle_tier": "subtitle",                  # preset size tier
+        }
+    """
+    from app.services.claude import translate_with_claude
+    from app.services.whisper_local import transcribe_local
+
+    session = get_sync_session()
+    job: ProcessingJob | None = None
+    try:
+        job = session.get(ProcessingJob, job_id)
+        if job is None:
+            raise ValueError(f"Job {job_id} not found")
+
+        _update_job_status(session, job, JobStatus.PROCESSING.value, progress=0.0)
+        params = job.input_params or {}
+
+        asset_path = params.get("asset_object_path", "")
+        project_id = job.project_id or params.get("project_id")
+        language = params.get("language", "zh")
+        target_language = params.get("target_language", "en")
+        include_en = params.get("include_english_export", True)
+        subtitle_role = params.get("subtitle_role", "main")
+        subtitle_tier = params.get("subtitle_tier", "subtitle")
+
+        if not asset_path:
+            raise ValueError("Missing asset_object_path in input_params")
+
+        # ====== Step 1: Download source video ======
+        _publish_progress(job_id, 5.0, detail="下載素材...")
+        local_video = _download_from_minio(asset_path)
+
+        try:
+            # ====== Step 2: Whisper transcription ======
+            _publish_progress(job_id, 10.0, detail="語音辨識中...")
+
+            # Extract audio for Whisper
+            audio_tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+            audio_tmp.close()
+            subprocess.run(
+                ["ffmpeg", "-y", "-i", local_video, "-vn",
+                 "-acodec", "pcm_s16le", "-ar", "16000", "-ac", "1",
+                 audio_tmp.name],
+                capture_output=True, check=True,
+            )
+
+            raw_segments = transcribe_local(audio_tmp.name, language=language)
+            os.unlink(audio_tmp.name)
+
+            # Convert to ms-based format
+            segments = []
+            for seg in raw_segments:
+                segments.append({
+                    "start_ms": int(seg["start"] * 1000),
+                    "end_ms": int(seg["end"] * 1000),
+                    "text": seg["text"],
+                })
+
+            _publish_progress(job_id, 35.0, detail=f"辨識完成：{len(segments)} 段字幕")
+
+            # Save subtitle track to DB
+            track = SubtitleTrack(
+                project_id=project_id,
+                language=language,
+                label=f"Pipeline auto ({language})",
+                is_auto_generated=True,
+            )
+            session.add(track)
+            session.flush()
+
+            for idx, seg in enumerate(segments):
+                db_seg = SubtitleSegment(
+                    track_id=track.id,
+                    index=idx,
+                    start_ms=seg["start_ms"],
+                    end_ms=seg["end_ms"],
+                    text=seg["text"],
+                    confidence=0.0,
+                )
+                session.add(db_seg)
+            session.flush()
+
+            # ====== Step 3: Claude translation (zh → en) ======
+            _publish_progress(job_id, 40.0, detail="翻譯字幕中...")
+            translations = translate_with_claude(
+                segments=segments,
+                source_lang="Traditional Chinese",
+                target_lang="English",
+            )
+
+            for idx, en_text in enumerate(translations):
+                if idx < len(segments):
+                    segments[idx]["translated_text"] = en_text
+
+            # Update DB segments with translations
+            db_segments = (
+                session.query(SubtitleSegment)
+                .filter(SubtitleSegment.track_id == track.id)
+                .order_by(SubtitleSegment.index)
+                .all()
+            )
+            for db_seg, en_text in zip(db_segments, translations):
+                db_seg.translated_text = en_text
+            session.flush()
+
+            _publish_progress(job_id, 55.0, detail="翻譯完成")
+
+            # ====== Step 4: Build project data & export ======
+            _publish_progress(job_id, 60.0, detail="組合影片中...")
+
+            # Probe source video
+            probe = ffmpeg_service.probe_file(local_video)
+            duration = float(probe["format"]["duration"])
+            duration_ms = int(duration * 1000)
+
+            # Build project_data for ffmpeg export
+            project_data = {
+                "timeline": {
+                    "tracks": [
+                        {
+                            "type": "video",
+                            "clips": [
+                                {
+                                    "source": local_video,
+                                    "start_ms": 0,
+                                    "end_ms": duration_ms,
+                                    "trim_start_ms": 0,
+                                    "trim_end_ms": duration_ms,
+                                }
+                            ],
+                        }
+                    ],
+                },
+                "output": {
+                    "width": 1080,
+                    "height": 1920,
+                    "fps": 30,
+                    "codec": "libx264",
+                    "audio_codec": "aac",
+                    "preset": "medium",
+                    "crf": 23,
+                },
+                "subtitle_segments": segments,
+                "subtitle_bilingual": True,
+                "subtitle_method": "srt",
+                "subtitle_role": subtitle_role,
+                "subtitle_tier": subtitle_tier,
+            }
+
+            output_tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
+            output_tmp.close()
+
+            cmd = ffmpeg_service.build_export_command(project_data, output_tmp.name)
+
+            _publish_progress(job_id, 65.0, detail="FFmpeg 匯出中...")
+            result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+            if result.returncode != 0:
+                raise RuntimeError(f"FFmpeg failed: {result.stderr[-500:]}")
+
+            _publish_progress(job_id, 85.0, detail="上傳中...")
+
+            # Upload main output
+            export_object = f"exports/{job.user_id}/{job_id}/main_zh.mp4"
+            with open(output_tmp.name, "rb") as f:
+                upload_file(
+                    settings.MINIO_BUCKET_EXPORTS,
+                    export_object,
+                    f.read(),
+                    content_type="video/mp4",
+                )
+            os.unlink(output_tmp.name)
+
+            download_url = get_presigned_url(
+                settings.MINIO_BUCKET_EXPORTS, export_object, expires=86400,
+            )
+
+            _publish_progress(job_id, 95.0, detail="完成！")
+
+            # ====== Step 5: Trigger English sidecar ======
+            if include_en and segments:
+                try:
+                    free_export_en.delay(
+                        source_video_object=export_object,
+                        subtitle_segments=segments,
+                        output_object_prefix=f"exports/{job.user_id}/{job_id}",
+                    )
+                    logger.info("Pipeline: EN sidecar triggered for job %s", job_id)
+                except Exception:
+                    logger.warning("Pipeline: EN sidecar trigger failed", exc_info=True)
+
+            _update_job_status(
+                session, job, JobStatus.COMPLETED.value,
+                progress=100.0,
+                result={
+                    "download_url": download_url,
+                    "object_path": f"/{settings.MINIO_BUCKET_EXPORTS}/{export_object}",
+                    "track_id": track.id,
+                    "segment_count": len(segments),
+                    "language": language,
+                    "translated": True,
+                },
+            )
+
+            return {
+                "job_id": job_id,
+                "download_url": download_url,
+                "track_id": track.id,
+                "segments": len(segments),
+            }
+
+        finally:
+            if os.path.exists(local_video):
+                os.unlink(local_video)
+
+    except Exception as exc:
+        if session:
+            session.rollback()
+        logger.exception("full_pipeline failed for job %s", job_id)
+        try:
+            if job:
+                _update_job_status(
+                    session, job, JobStatus.FAILED.value,
+                    error_message=str(exc)[:2000],
+                )
+        except Exception:
+            logger.exception("Failed to update job status to FAILED")
+        raise self.retry(exc=exc, countdown=30)
+    finally:
+        if session:
+            session.close()
