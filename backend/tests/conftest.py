@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 from collections.abc import AsyncGenerator
 
@@ -23,6 +24,19 @@ TEST_DATABASE_URL = os.environ.get(
     "postgresql+asyncpg://veditor:veditor_dev_pass@localhost:5432/video_editor_test",
 )
 
+
+# ---------------------------------------------------------------------------
+# Single event loop for the entire test session
+# ---------------------------------------------------------------------------
+@pytest.fixture(scope="session")
+def event_loop():
+    """Create a single event loop shared across all tests."""
+    loop = asyncio.new_event_loop()
+    yield loop
+    loop.close()
+
+
+# Engine must be created inside the session-scoped loop context
 test_engine = create_async_engine(TEST_DATABASE_URL, echo=False)
 TestSessionLocal = async_sessionmaker(
     bind=test_engine,
@@ -34,11 +48,6 @@ TestSessionLocal = async_sessionmaker(
 # ---------------------------------------------------------------------------
 # Session-scoped: create / drop all tables once per test session
 # ---------------------------------------------------------------------------
-@pytest.fixture(scope="session")
-def anyio_backend():
-    return "asyncio"
-
-
 @pytest_asyncio.fixture(scope="session", autouse=True)
 async def setup_database():
     """Create all tables at the start of the test session and drop them at the end."""
