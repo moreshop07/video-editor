@@ -4,7 +4,7 @@ import uuid
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, status
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -13,7 +13,7 @@ from app.core.security import get_current_user
 from app.core.storage import delete_file, upload_file
 from app.models.asset import Asset
 from app.models.user import User
-from app.schemas.asset import AssetResponse, AssetSearchParams
+from app.schemas.asset import AssetResponse
 from app.workers.tasks import process_asset_metadata
 
 router = APIRouter(prefix="/assets", tags=["assets"])
@@ -197,8 +197,8 @@ async def stream_asset(
 ):
     """Stream an asset file from MinIO with Range header support."""
     from fastapi.responses import StreamingResponse
-    from starlette.responses import Response
-    import io
+
+    from app.core.storage import minio_client
 
     result = await db.execute(
         select(Asset).where(Asset.id == asset_id, Asset.user_id == current_user.id)
@@ -209,18 +209,19 @@ async def stream_asset(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Asset not found",
         )
-
-    # Get presigned URL for the object
-    from app.core.storage import get_presigned_url
-    url = get_presigned_url(
-        bucket=settings.MINIO_BUCKET_ASSETS,
-        object_name=asset.file_path.lstrip("/").split("/", 1)[-1],
-        expires=3600,
-    )
-
-    # Redirect to MinIO presigned URL for streaming
-    from starlette.responses import RedirectResponse
-    return RedirectResponse(url=url, status_code=307)
+    object_name = asset.file_path.lstrip("/").split("/", 1)[-1]
+    try:
+        response = minio_client.get_object(settings.MINIO_BUCKET_ASSETS, object_name)
+        return StreamingResponse(
+            response.stream(64 * 1024),
+            media_type=asset.content_type or "application/octet-stream",
+            headers={
+                "Content-Disposition": f'inline; filename="{asset.filename}"',
+                "Accept-Ranges": "bytes",
+            },
+        )
+    except Exception:
+        raise HTTPException(status_code=404, detail="File not found in storage")
 
 
 # ---------------------------------------------------------------------------
@@ -232,9 +233,8 @@ async def get_asset_thumbnail(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get a presigned URL for the asset thumbnail."""
-    from starlette.responses import RedirectResponse
-    from app.core.storage import get_presigned_url
+    """Get the asset thumbnail from MinIO."""
+    from fastapi.responses import StreamingResponse
 
     result = await db.execute(
         select(Asset).where(Asset.id == asset_id, Asset.user_id == current_user.id)
@@ -257,8 +257,17 @@ async def get_asset_thumbnail(
     bucket = parts[0]
     object_name = parts[1] if len(parts) > 1 else parts[0]
 
-    url = get_presigned_url(bucket=bucket, object_name=object_name, expires=3600)
-    return RedirectResponse(url=url, status_code=307)
+    # Proxy stream from MinIO (MinIO is internal, not browser-accessible)
+    from app.core.storage import minio_client
+    try:
+        response = minio_client.get_object(bucket, object_name)
+        return StreamingResponse(
+            response.stream(64 * 1024),
+            media_type="image/jpeg",
+            headers={"Cache-Control": "public, max-age=3600"},
+        )
+    except Exception:
+        raise HTTPException(status_code=404, detail="Thumbnail not found in storage")
 
 
 # ---------------------------------------------------------------------------

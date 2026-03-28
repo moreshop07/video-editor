@@ -13,7 +13,6 @@ from app.models.processing import JobStatus, ProcessingJob
 from app.models.user import User
 from app.schemas.music import (
     MusicMatchRequest,
-    MusicSearchParams,
     MusicTrackResponse,
     SoundEffectResponse,
 )

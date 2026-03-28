@@ -2,8 +2,6 @@
 
 import os
 
-import pytest
-
 from app.services.ffmpeg import (
     _build_atempo_chain,
     _generate_temp_srt,

@@ -5,6 +5,7 @@ from typing import Any
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -123,9 +124,6 @@ async def search_external(
 # ---------------------------------------------------------------------------
 # POST /external/import
 # ---------------------------------------------------------------------------
-from pydantic import BaseModel
-
-
 class ExternalImportRequest(BaseModel):
     url: str
     source: str
