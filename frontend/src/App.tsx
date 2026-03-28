@@ -25,7 +25,7 @@ function LoadingSpinner() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
+      <BrowserRouter basename="/studio">
         <Suspense fallback={<LoadingSpinner />}>
           <Routes>
             <Route path="/" element={<EditorPage />} />

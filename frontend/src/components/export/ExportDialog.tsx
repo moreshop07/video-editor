@@ -223,7 +223,7 @@ export default function ExportDialog({
         },
         renderableTracks,
         subtitleSegments,
-        (assetId) => `/api/v1/assets/${assetId}/stream`,
+        (assetId) => `/studio/api/v1/assets/${assetId}/stream`,
         durationMs,
       );
 

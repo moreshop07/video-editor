@@ -29,7 +29,7 @@ export class ProjectWebSocket {
     const token = localStorage.getItem("auth_token") || "";
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const host = window.location.host;
-    const url = `${protocol}//${host}/api/v1/ws/${this.projectId}?token=${token}`;
+    const url = `${protocol}//${host}/studio/api/v1/ws/${this.projectId}?token=${token}`;
 
     this.ws = new WebSocket(url);
 

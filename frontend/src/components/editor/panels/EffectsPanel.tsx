@@ -1,7 +1,8 @@
 import { useMemo, useCallback, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTimelineStore, type Clip, type Track } from '@/store/timelineStore';
-import { effectDefinitions, getEffectDefinition } from '@/effects/effectDefinitions';
+import { getEffectDefinition } from '@/effects/effectDefinitions';
+import { useEffectRegistry } from '@/plugins/hooks';
 import type { ClipEffect, ClipFilters } from '@/effects/types';
 import { DEFAULT_CLIP_FILTERS } from '@/effects/types';
 import apiClient from '@/api/client';
@@ -133,8 +134,9 @@ export default function EffectsPanel() {
     );
   }
 
+  const allEffects = useEffectRegistry();
   const appliedEffects = clipFilters.effects;
-  const availableEffects = effectDefinitions.filter(
+  const availableEffects = allEffects.filter(
     (def) => !appliedEffects.some((e) => e.id === def.id),
   );
 

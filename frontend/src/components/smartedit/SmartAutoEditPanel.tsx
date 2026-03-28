@@ -225,7 +225,7 @@ function BeatSyncSection() {
       const asset = assets.find((a) => a.id === assetId);
       if (!asset) throw new Error('Asset not found');
 
-      const url = `/api/v1/assets/${assetId}/stream`;
+      const url = `/studio/api/v1/assets/${assetId}/stream`;
       const waveformCache = WaveformCache.getInstance();
       // Load waveform (which fetches and decodes the audio)
       await waveformCache.load(String(assetId), url);
@@ -402,7 +402,7 @@ function BeatSyncSection() {
         <div className="flex flex-col gap-2 rounded bg-white/5 p-2">
           <p className="text-xs text-green-400">{t('smartEdit.beatSync.completed')}</p>
           <p className="text-[10px] text-[var(--text-secondary)]">
-            {t('smartEdit.beatSync.beatCount', { count: result.beat_count })} / {t('smartEdit.beatSync.clipCount', { count: result.clip_count })}
+            {t('smartEdit.beatSync.beatCount', { count: Number(result.beat_count) })} / {t('smartEdit.beatSync.clipCount', { count: Number(result.clip_count) })}
           </p>
           <button onClick={() => { applyClipsToTimeline(result.clips as ClipDef[]); setApplied(true); }}
             className="rounded bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:opacity-90">
@@ -514,7 +514,7 @@ function MontageSection() {
         <div className="flex flex-col gap-2 rounded bg-white/5 p-2">
           <p className="text-xs text-green-400">{t('smartEdit.montage.completed')}</p>
           <p className="text-[10px] text-[var(--text-secondary)]">
-            {t('smartEdit.montage.clipCount', { count: result.clip_count })}
+            {t('smartEdit.montage.clipCount', { count: Number(result.clip_count) })}
           </p>
           <button onClick={() => {
             applyClipsToTimeline(result.clips as ClipDef[], result.music_clip as ClipDef | undefined);
@@ -610,16 +610,16 @@ function PlatformSection() {
       {adjustments && (
         <div className="flex flex-col gap-2 rounded bg-white/5 p-2">
           <p className="text-xs text-green-400">{t('smartEdit.platformOptimize.completed')}</p>
-          {adjustments.needs_resize && (
-            <p className="text-[10px] text-yellow-400">{t('smartEdit.platformOptimize.needsResize')}: {String(adjustments.target_width)}x{String(adjustments.target_height)}</p>
+          {Boolean(adjustments.needs_resize) && (
+            <p className="text-[10px] text-yellow-400">{t('smartEdit.platformOptimize.needsResize') as string}: {String(adjustments.target_width)}x{String(adjustments.target_height)}</p>
           )}
-          {adjustments.trim_to_ms && (
-            <p className="text-[10px] text-yellow-400">{t('smartEdit.platformOptimize.needsTrim')}: {(Number(adjustments.trim_to_ms) / 1000).toFixed(0)}s</p>
+          {Boolean(adjustments.trim_to_ms) && (
+            <p className="text-[10px] text-yellow-400">{t('smartEdit.platformOptimize.needsTrim') as string}: {(Number(adjustments.trim_to_ms) / 1000).toFixed(0)}s</p>
           )}
           {!adjustments.needs_resize && !adjustments.trim_to_ms && (
-            <p className="text-[10px] text-[var(--text-secondary)]">{t('smartEdit.platformOptimize.noChanges')}</p>
+            <p className="text-[10px] text-[var(--text-secondary)]">{t('smartEdit.platformOptimize.noChanges') as string}</p>
           )}
-          {(adjustments.needs_resize || adjustments.trim_to_ms) && (
+          {Boolean(adjustments.needs_resize || adjustments.trim_to_ms) && (
             <button onClick={handleApply}
               className="rounded bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:opacity-90">
               {t('smartEdit.platformOptimize.applyChanges')}

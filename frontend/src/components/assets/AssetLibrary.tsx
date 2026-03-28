@@ -38,7 +38,7 @@ export default function AssetLibrary() {
     searchQuery,
     filterType,
     fetchAssets,
-    uploadAsset,
+    uploadAsset: _uploadAsset,
     uploadMultiple,
     deleteAsset,
     setSearchQuery,

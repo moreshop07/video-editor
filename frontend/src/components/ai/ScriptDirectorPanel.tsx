@@ -175,6 +175,8 @@ export default function ScriptDirectorPanel() {
   const [selectedHook, setSelectedHook] = useState(0);
   const [activeTab, setActiveTab] = useState<'30-60s' | '60-90s'>('30-60s');
   const [error, setError] = useState('');
+  const [voiceDna, setVoiceDna] = useState(() => localStorage.getItem('voiceDNA_prompt') || '');
+  const [showVoiceDna, setShowVoiceDna] = useState(false);
 
   const handleGenerate = useCallback(async () => {
     if (!draft.trim() || draft.length < 10) {
@@ -184,7 +186,7 @@ export default function ScriptDirectorPanel() {
     setLoading(true);
     setError('');
     try {
-      const data = await generateScript(draft);
+      const data = await generateScript(draft, voiceDna ? { voice_dna: voiceDna } : {});
       setResult(data);
       setSelectedHook(0);
       if (data.analysis.suggested_duration === '60-90s') {
@@ -236,6 +238,46 @@ export default function ScriptDirectorPanel() {
             placeholder={"把你的知識草稿貼在這裡...\n\n例如：\n玻尿酸是一種很好的保濕成分，它可以吸收自身1000倍重量的水分。但是不同分子量的玻尿酸有不同的作用..."}
             className="h-32 bg-gray-800 border border-gray-700 rounded-lg p-3 text-xs text-gray-100 placeholder-gray-600 resize-none focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 transition-colors"
           />
+          {/* Voice DNA 匯入區 */}
+          <div className="flex flex-col gap-1.5">
+            <button
+              type="button"
+              onClick={() => setShowVoiceDna(!showVoiceDna)}
+              className="flex items-center gap-1.5 text-[10px] text-amber-400 hover:text-amber-300 transition-colors w-fit"
+            >
+              <span>{showVoiceDna ? '▾' : '▸'}</span>
+              <span>Voice DNA 語氣說明書</span>
+              {voiceDna && !showVoiceDna && (
+                <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[9px]">已匯入</span>
+              )}
+            </button>
+            {showVoiceDna && (
+              <div className="flex flex-col gap-1.5">
+                <textarea
+                  value={voiceDna}
+                  onChange={(e) => {
+                    setVoiceDna(e.target.value);
+                    localStorage.setItem('voiceDNA_prompt', e.target.value);
+                  }}
+                  placeholder={"貼上你的 Voice DNA 語氣說明書⋯⋯\n\n從 moresie.com/voice-dna 生成後複製貼上"}
+                  className="h-24 bg-gray-800 border border-amber-500/30 rounded-lg p-3 text-xs text-amber-100 placeholder-gray-600 resize-none focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 transition-colors"
+                />
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] text-gray-600">AI 生成腳本時會套用你的語氣風格</span>
+                  {voiceDna && (
+                    <button
+                      type="button"
+                      onClick={() => { setVoiceDna(''); localStorage.removeItem('voiceDNA_prompt'); }}
+                      className="text-[9px] text-red-400 hover:text-red-300"
+                    >
+                      清除
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="flex items-center justify-between">
             <span className="text-[10px] text-gray-500">{draft.length} / 5000 字</span>
             <button

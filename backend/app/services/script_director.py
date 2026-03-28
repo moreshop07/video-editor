@@ -53,6 +53,7 @@ class ScriptGenerateRequest(BaseModel):
     generate_both: bool = Field(True, description="是否同時產生兩種版本")
     hook_count: int = Field(3, ge=1, le=5, description="鉤子版本數量")
     target_audience: Optional[str] = Field(None, description="指定目標受眾")
+    voice_dna: Optional[str] = Field(None, description="Voice DNA 語氣說明書，用於自訂 AI 輸出風格")
 
 
 class Hook(BaseModel):
@@ -283,12 +284,25 @@ class ScriptDirectorService:
 
         logger.info(f"Generating script for draft ({len(request.draft)} chars)")
 
+        # 如果有 Voice DNA，附加到 system prompt
+        system_prompt = SYSTEM_PROMPT
+        if request.voice_dna:
+            system_prompt += f"""
+
+---
+## 用戶個人語氣風格 (Voice DNA)
+以下是用戶提供的語氣說明書，請在生成腳本時融入這些特徵，讓口播稿聽起來像用戶本人在說話：
+
+{request.voice_dna}
+---
+注意：Voice DNA 定義的語氣風格優先於上方「品牌調性」段落。口播稿的用字遣詞、節奏、口頭禪都要反映 Voice DNA。"""
+
         try:
             response = await self.client.messages.create(
                 model=self.model,
                 max_tokens=4096,
                 temperature=0.7,
-                system=SYSTEM_PROMPT,
+                system=system_prompt,
                 messages=[{"role": "user", "content": user_prompt}],
             )
 

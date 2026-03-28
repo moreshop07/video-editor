@@ -124,7 +124,7 @@ export const useMotionTrackingStore = create<MotionTrackingState>((set, get) => 
 
     set({ _decoderPool: decoderPool });
 
-    const assetUrl = `/api/v1/assets/${state.sourceAssetId}/stream`;
+    const assetUrl = `/studio/api/v1/assets/${state.sourceAssetId}/stream`;
 
     try {
       await decoderPool.preload(state.sourceAssetId, assetUrl);

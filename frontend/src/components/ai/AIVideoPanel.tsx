@@ -139,7 +139,7 @@ export default function AIVideoPanel() {
             >
               <option value="">{t('aiVideo.selectImage')}</option>
               {imageAssets.map((a) => (
-                <option key={a.id} value={a.url || a.file_path}>
+                <option key={a.id} value={(a as any).url || (a as any).file_path}>
                   {a.original_filename || a.filename}
                 </option>
               ))}

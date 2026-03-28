@@ -1,31 +1,6 @@
 version: "3.9"
 
 services:
-  postgres:
-    image: postgres:16-alpine
-    env_file: .env.prod
-    environment:
-      POSTGRES_DB: video_editor
-    restart: unless-stopped
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-veditor} -d video_editor"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   minio:
     image: minio/minio:latest
     command: server /data --console-address ":9001"
@@ -33,6 +8,8 @@ services:
     restart: unless-stopped
     volumes:
       - minio_data:/data
+    networks:
+      - studio_internal
     healthcheck:
       test: ["CMD", "mc", "ready", "local"]
       interval: 10s
@@ -54,25 +31,27 @@ services:
       mc anonymous set download local/video-editor-thumbnails;
       exit 0;
       "
+    networks:
+      - studio_internal
 
   api:
+    image: video-editor-api:latest
     build:
       context: ./backend
       dockerfile: Dockerfile.prod
     env_file: .env.prod
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-veditor}:${POSTGRES_PASSWORD}@postgres:5432/video_editor
-      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-veditor}:${POSTGRES_PASSWORD}@postgres:5432/video_editor
-      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-veditor}:${POSTGRES_PASSWORD}@opencut-postgres:5432/video_editor
+      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-veditor}:${POSTGRES_PASSWORD}@opencut-postgres:5432/video_editor
+      REDIS_URL: redis://opencut-redis:6379/2
       MINIO_ENDPOINT: minio:9000
     restart: unless-stopped
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
       minio:
         condition: service_healthy
+    networks:
+      - studio_internal
+      - opencut_net
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s
@@ -81,57 +60,54 @@ services:
       start_period: 30s
 
   worker-video:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.prod
+    image: video-editor-api:latest
     env_file: .env.prod
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-veditor}:${POSTGRES_PASSWORD}@postgres:5432/video_editor
-      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-veditor}:${POSTGRES_PASSWORD}@postgres:5432/video_editor
-      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-veditor}:${POSTGRES_PASSWORD}@opencut-postgres:5432/video_editor
+      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-veditor}:${POSTGRES_PASSWORD}@opencut-postgres:5432/video_editor
+      REDIS_URL: redis://opencut-redis:6379/2
       MINIO_ENDPOINT: minio:9000
     restart: unless-stopped
     depends_on:
-      postgres:
+      minio:
         condition: service_healthy
-      redis:
-        condition: service_healthy
+    networks:
+      - studio_internal
+      - opencut_net
     command: celery -A app.workers.celery_app worker -Q video -c 2 -l info
 
   worker-ai:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.prod
+    image: video-editor-api:latest
     env_file: .env.prod
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-veditor}:${POSTGRES_PASSWORD}@postgres:5432/video_editor
-      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-veditor}:${POSTGRES_PASSWORD}@postgres:5432/video_editor
-      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-veditor}:${POSTGRES_PASSWORD}@opencut-postgres:5432/video_editor
+      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-veditor}:${POSTGRES_PASSWORD}@opencut-postgres:5432/video_editor
+      REDIS_URL: redis://opencut-redis:6379/2
       MINIO_ENDPOINT: minio:9000
     restart: unless-stopped
     depends_on:
-      postgres:
+      minio:
         condition: service_healthy
-      redis:
-        condition: service_healthy
+    networks:
+      - studio_internal
+      - opencut_net
     command: celery -A app.workers.celery_app worker -Q ai -c 2 -l info
 
   worker-asset:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.prod
+    image: video-editor-api:latest
     env_file: .env.prod
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-veditor}:${POSTGRES_PASSWORD}@postgres:5432/video_editor
-      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-veditor}:${POSTGRES_PASSWORD}@postgres:5432/video_editor
-      REDIS_URL: redis://redis:6379/0
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-veditor}:${POSTGRES_PASSWORD}@opencut-postgres:5432/video_editor
+      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-veditor}:${POSTGRES_PASSWORD}@opencut-postgres:5432/video_editor
+      REDIS_URL: redis://opencut-redis:6379/2
       MINIO_ENDPOINT: minio:9000
     restart: unless-stopped
     depends_on:
-      postgres:
+      minio:
         condition: service_healthy
-      redis:
-        condition: service_healthy
+    networks:
+      - studio_internal
+      - opencut_net
     command: celery -A app.workers.celery_app worker -Q asset -c 1 -l info
 
   frontend:
@@ -139,19 +115,28 @@ services:
       context: ./frontend
       dockerfile: Dockerfile.prod
     restart: unless-stopped
+    networks:
+      - studio_internal
 
   nginx:
     image: nginx:alpine
     ports:
-      - "80:80"
+      - "8080:80"
     volumes:
       - ./infra/nginx.prod.conf:/etc/nginx/conf.d/default.conf
     restart: unless-stopped
     depends_on:
       - api
       - frontend
+    networks:
+      - studio_internal
+
+networks:
+  studio_internal:
+    driver: bridge
+  opencut_net:
+    external: true
+    name: shared_services
 
 volumes:
-  postgres_data:
-  redis_data:
   minio_data:

@@ -385,7 +385,7 @@ export class ExportEngine {
   // ---------- WAV export ----------
 
   private async exportWavFormat(
-    config: ExportConfig,
+    _config: ExportConfig,
     tracks: RenderableTrack[],
     urlResolver: (assetId: string) => string,
     durationMs: number,

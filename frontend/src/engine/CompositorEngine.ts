@@ -24,6 +24,7 @@ import { ColorGradingProcessor } from './ColorGradingProcessor';
 import { getInterpolatedValue } from '@/utils/keyframeUtils';
 import { ANIMATABLE_PROPERTY_DEFAULTS } from '@/types/keyframes';
 import { DuckingProcessor } from './DuckingProcessor';
+import { ClipRendererRegistry } from '@/plugins/registries/ClipRendererRegistry';
 
 interface TransitionClipPair {
   outgoingClip: RenderableClip | null;
@@ -230,7 +231,7 @@ export class CompositorEngine {
    */
   private getInterpolatedClipProperty(
     clip: RenderableClip,
-    property: 'positionX' | 'positionY' | 'scaleX' | 'scaleY' | 'rotation' | 'opacity' | 'cropTop' | 'cropBottom' | 'cropLeft' | 'cropRight',
+    property: 'positionX' | 'positionY' | 'scaleX' | 'scaleY' | 'rotation' | 'opacity' | 'cropTop' | 'cropBottom' | 'cropLeft' | 'cropRight' | 'textRevealProgress',
     clipTimeMs: number,
   ): number {
     // Check for keyframes
@@ -793,7 +794,13 @@ export class CompositorEngine {
     const isImage = clip.type === 'image' || clip.type === 'sticker';
     const isText = clip.type === 'text';
 
-    if (!isVideo && !isImage && !isText) return null;
+    if (!isVideo && !isImage && !isText) {
+      const customRenderer = ClipRendererRegistry.get(clip.type);
+      if (customRenderer) {
+        return customRenderer.render(clip, _timeMs, this.config.width, this.config.height);
+      }
+      return null;
+    }
 
     // Calculate clip-relative time for keyframe interpolation
     const clipTimeMs = _timeMs - clip.startTime;

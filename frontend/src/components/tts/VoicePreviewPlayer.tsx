@@ -1,9 +1,7 @@
 import { useRef, useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
 import { useAnalyzerStore } from '@/store/analyzerStore';
 
 export default function VoicePreviewPlayer() {
-  const { t } = useTranslation();
   const { previewAudioUrl, clearPreviewAudio } = useAnalyzerStore();
   const audioRef = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);

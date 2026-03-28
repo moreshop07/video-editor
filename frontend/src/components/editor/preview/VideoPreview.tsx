@@ -25,7 +25,7 @@ export default function VideoPreview() {
   const [isMuted, setIsMuted] = useState(false);
   const [canvasSize, setCanvasSize] = useState({ width: 640, height: 360 });
   const [hasContent, setHasContent] = useState(false);
-  const [letterboxFraction, setLetterboxFraction] = useState(0);
+  const [_letterboxFraction, setLetterboxFraction] = useState(0);
   const [guides, setGuides] = useState({ thirds: false, center: false, titleSafe: false, actionSafe: false });
   const guidesCanvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -67,7 +67,7 @@ export default function VideoPreview() {
       fps: 30,
     });
 
-    engine.setAssetUrlResolver((assetId) => `/api/v1/assets/${assetId}/stream`);
+    engine.setAssetUrlResolver((assetId) => `/studio/api/v1/assets/${assetId}/stream`);
 
     engine.onTimeUpdate = (timeMs) => {
       setCurrentTime(timeMs);

@@ -1,4 +1,5 @@
-import type { TransitionType, TransitionRenderParams } from '@/types/transitions';
+import type { TransitionRenderParams } from '@/types/transitions';
+import { TransitionRegistry } from '@/plugins/registries/TransitionRegistry';
 
 type DrawableSource = ImageBitmap | HTMLVideoElement | HTMLImageElement | null;
 
@@ -52,11 +53,15 @@ export class TransitionRenderer {
       case 'zoom-out':
         this.renderZoom(ctx, outgoing, incoming, progress, width, height, 'out');
         break;
-      default:
-        // No transition, just draw incoming
-        if (incoming) {
+      default: {
+        // Check plugin registry for custom transition
+        const custom = TransitionRegistry.get(type);
+        if (custom) {
+          custom.render(ctx, outgoing, incoming, params);
+        } else if (incoming) {
           ctx.drawImage(incoming, 0, 0, width, height);
         }
+      }
     }
   }
 

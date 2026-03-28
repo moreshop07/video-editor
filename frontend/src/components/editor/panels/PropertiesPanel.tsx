@@ -29,7 +29,7 @@ import { SHAPE_DEFINITIONS } from '@/effects/shapeDefinitions';
 
 function PropertiesPanelComponent() {
   const { t } = useTranslation();
-  const { tracks, selectedClipIds, updateClip, setClipTransition, updateTrackAudio, setClipKeyframe, removeClipKeyframe, removeSelectedClips, updateSelectedClips, canvasBackground, setCanvasBackground } = useTimelineStore();
+  const { tracks, selectedClipIds, updateClip, setClipTransition, updateTrackAudio: _updateTrackAudio, setClipKeyframe: _setClipKeyframe, removeClipKeyframe: _removeClipKeyframe, removeSelectedClips, updateSelectedClips, canvasBackground, setCanvasBackground } = useTimelineStore();
 
   const selectedClipId = selectedClipIds[0] ?? null;
 
@@ -50,17 +50,6 @@ function PropertiesPanelComponent() {
       if (!selectedData) return;
       updateClip(selectedData.track.id, selectedData.clip.id, {
         [field]: value,
-      });
-    },
-    [selectedData, updateClip],
-  );
-
-  const handleSpeedChange = useCallback(
-    (speed: number) => {
-      if (!selectedData) return;
-      const filters: ClipFilters = selectedData.clip.filters ?? DEFAULT_CLIP_FILTERS;
-      updateClip(selectedData.track.id, selectedData.clip.id, {
-        filters: { ...filters, speed },
       });
     },
     [selectedData, updateClip],
@@ -240,7 +229,8 @@ function PropertiesPanelComponent() {
     cropLeft: clip.cropLeft ?? 0,
     cropRight: clip.cropRight ?? 0,
     textRevealProgress: 1,
-  }), [clip.positionX, clip.positionY, clip.scaleX, clip.scaleY, clip.rotation, clip.cropTop, clip.cropBottom, clip.cropLeft, clip.cropRight]);
+    speed: clipFilters.speed ?? 1,
+  }), [clip.positionX, clip.positionY, clip.scaleX, clip.scaleY, clip.rotation, clip.cropTop, clip.cropBottom, clip.cropLeft, clip.cropRight, clipFilters.speed]);
 
   return (
     <div className="flex flex-col gap-4 p-4">

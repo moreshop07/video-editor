@@ -15,7 +15,7 @@ interface ClipCanvasProps {
   color: string;
 }
 
-const STREAM_URL_BASE = '/api/v1/assets';
+const STREAM_URL_BASE = '/studio/api/v1/assets';
 
 function getStreamUrl(assetId: string): string {
   return `${STREAM_URL_BASE}/${assetId}/stream`;

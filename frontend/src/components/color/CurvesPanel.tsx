@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { CurvesSettings, CurvePoint } from '@/effects/types';
-import { DEFAULT_CURVE_POINTS } from '@/effects/types';
+import { DEFAULT_CURVE_POINTS as _DEFAULT_CURVE_POINTS } from '@/effects/types';
 import { CurveEditor } from './CurveEditor';
 import { CURVE_PRESETS } from '@/effects/curvePresets';
 

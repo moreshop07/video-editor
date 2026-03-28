@@ -442,7 +442,7 @@ function SpeakerSection() {
 function AuditSection() {
   const { t } = useTranslation();
   const { tracks, activeTrackId } = useSubtitleStore();
-  const seekTo = useTimelineStore((s) => s.seekTo);
+  const seekTo = useTimelineStore((s) => s.setCurrentTime);
   const activeTrack = tracks.find((tr) => tr.id === activeTrackId);
   const [auditResult, setAuditResult] = useState<{
     score: number;

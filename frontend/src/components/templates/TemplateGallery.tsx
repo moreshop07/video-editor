@@ -21,7 +21,7 @@ function userTemplateToTemplate(ut: UserTemplate): Template {
     width: ut.width,
     height: ut.height,
     fps: ut.fps,
-    projectData: ut.template_data as Template['projectData'],
+    projectData: ut.template_data as unknown as Template['projectData'],
   };
 }
 

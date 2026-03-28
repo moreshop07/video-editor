@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import type { TransitionType, Transition } from '@/types/transitions';
+import { useTransitionRegistry } from '@/plugins/hooks';
 
 interface TransitionPickerProps {
   value: Transition | undefined;
@@ -7,24 +8,15 @@ interface TransitionPickerProps {
   disabled?: boolean;
 }
 
-const TRANSITIONS: { type: TransitionType; icon: string; nameKey: string }[] = [
-  { type: 'none', icon: '✕', nameKey: 'transition.none' },
-  { type: 'fade', icon: '◐', nameKey: 'transition.fade' },
-  { type: 'slide-left', icon: '←', nameKey: 'transition.slideLeft' },
-  { type: 'slide-right', icon: '→', nameKey: 'transition.slideRight' },
-  { type: 'slide-up', icon: '↑', nameKey: 'transition.slideUp' },
-  { type: 'slide-down', icon: '↓', nameKey: 'transition.slideDown' },
-  { type: 'wipe-left', icon: '◧', nameKey: 'transition.wipeLeft' },
-  { type: 'wipe-right', icon: '◨', nameKey: 'transition.wipeRight' },
-  { type: 'wipe-up', icon: '⬒', nameKey: 'transition.wipeUp' },
-  { type: 'wipe-down', icon: '⬓', nameKey: 'transition.wipeDown' },
-  { type: 'zoom-in', icon: '⊕', nameKey: 'transition.zoomIn' },
-  { type: 'zoom-out', icon: '⊖', nameKey: 'transition.zoomOut' },
-];
-
 const DEFAULT_DURATION = 500;
 
 export function TransitionPicker({ value, onChange, disabled }: TransitionPickerProps) {
+  const registeredTransitions = useTransitionRegistry();
+
+  const TRANSITIONS: { type: TransitionType; icon: string; nameKey: string }[] = [
+    { type: 'none', icon: '✕', nameKey: 'transition.none' },
+    ...registeredTransitions.map((t) => ({ type: t.type as TransitionType, icon: t.icon, nameKey: t.nameKey })),
+  ];
   const { t } = useTranslation();
 
   const currentType = value?.type ?? 'none';

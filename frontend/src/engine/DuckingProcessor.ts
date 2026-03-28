@@ -1,4 +1,4 @@
-import type { DuckingSettings, DuckingEnvelope, DuckingEnvelopePoint } from '@/effects/types';
+import type { DuckingSettings, DuckingEnvelope } from '@/effects/types';
 import type { AudioMixerEngine } from './AudioMixerEngine';
 import type { RenderableTrack } from './types';
 

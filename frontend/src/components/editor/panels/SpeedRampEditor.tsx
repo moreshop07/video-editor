@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTimelineStore } from '@/store/timelineStore';
-import type { KeyframeTracks, Keyframe } from '@/types/keyframes';
+import type { KeyframeTracks } from '@/types/keyframes';
 import { getInterpolatedValue } from '@/utils/keyframeUtils';
 import {
   SPEED_RAMP_PRESETS,

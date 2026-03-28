@@ -55,8 +55,8 @@ export default function CropZoomPanel() {
       <KenBurnsSection
         clip={clip}
         track={track}
-        setClipKeyframe={setClipKeyframe}
-        removeClipKeyframeTrack={removeClipKeyframeTrack}
+        setClipKeyframe={setClipKeyframe as any}
+        removeClipKeyframeTrack={removeClipKeyframeTrack as any}
       />
     </div>
   );

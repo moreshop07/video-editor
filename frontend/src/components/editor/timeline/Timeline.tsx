@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useTimelineStore, Track as TrackType } from '@/store/timelineStore';
+import { useTimelineStore } from '@/store/timelineStore';
 import { useCollaborationStore } from '@/store/collaborationStore';
 import { TrackRegistryProvider } from './TrackRegistry';
 import Track from './Track';

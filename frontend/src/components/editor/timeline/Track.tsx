@@ -78,7 +78,10 @@ function TrackComponent({ track, pxPerMs, isDragTarget, viewportWidth }: TrackPr
           duration,
           name: data.filename || `Asset ${data.id}`,
           type: data.type || track.type,
-        });
+          filters: { effects: [], speed: 1, chromaKey: undefined, blendMode: undefined, colorGrading: undefined, curves: undefined },
+          fadeInMs: 0,
+          fadeOutMs: 0,
+        } as Omit<import('@/store/timelineStore').Clip, 'trackId'>);
       } catch {
         // Invalid drag data
       }

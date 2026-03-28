@@ -53,8 +53,8 @@ export function useAutoSave(ws: ProjectWebSocket | null) {
 
   // Subscribe to timeline state changes (excluding playback-only fields)
   useEffect(() => {
-    const unsub = useTimelineStore.subscribe(
-      (state) => ({
+    const unsub = (useTimelineStore.subscribe as any)(
+      (state: any) => ({
         tracks: state.tracks,
         sequences: state.sequences,
         markers: state.markers,
@@ -63,7 +63,7 @@ export function useAutoSave(ws: ProjectWebSocket | null) {
         snapEnabled: state.snapEnabled,
         canvasBackground: state.canvasBackground,
       }),
-      (selected: Record<string, unknown>) => {
+      (selected: any) => {
         const serialized = serializeForSave(selected);
         const hash = simpleHash(JSON.stringify(serialized));
 
@@ -83,7 +83,7 @@ export function useAutoSave(ws: ProjectWebSocket | null) {
           performSave(serialized);
         }, AUTO_SAVE_DEBOUNCE_MS);
       },
-      { equalityFn: (a: Record<string, unknown>, b: Record<string, unknown>) => JSON.stringify(a) === JSON.stringify(b) },
+      { equalityFn: (a: any, b: any) => JSON.stringify(a) === JSON.stringify(b) },
     );
 
     return () => {
@@ -94,8 +94,8 @@ export function useAutoSave(ws: ProjectWebSocket | null) {
 
   // Save on pause if there were changes during playback
   useEffect(() => {
-    const unsub = useTimelineStore.subscribe(
-      (state) => state.isPlaying,
+    const unsub = (useTimelineStore.subscribe as any)(
+      (state: any) => state.isPlaying,
       (isPlaying: boolean) => {
         if (!isPlaying && debounceTimer.current) {
           // Was playing and had pending changes — save now

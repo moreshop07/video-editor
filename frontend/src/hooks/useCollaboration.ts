@@ -69,10 +69,10 @@ export function useCollaboration(ws: ProjectWebSocket | null) {
   // Broadcast local selection changes
   useEffect(() => {
     if (!ws) return;
-    const unsub = useTimelineStore.subscribe(
-      (state) => state.selectedClipIds,
-      (selectedClipIds: Set<string>) => {
-        ws.sendSelection(selectedClipIds);
+    const unsub = (useTimelineStore.subscribe as any)(
+      (state: any) => state.selectedClipIds,
+      (selectedClipIds: Set<string> | string[]) => {
+        ws.sendSelection(Array.isArray(selectedClipIds) ? selectedClipIds : Array.from(selectedClipIds));
       },
     );
     return unsub;
@@ -81,8 +81,8 @@ export function useCollaboration(ws: ProjectWebSocket | null) {
   // Broadcast local playhead position (throttled)
   useEffect(() => {
     if (!ws) return;
-    const unsub = useTimelineStore.subscribe(
-      (state) => state.currentTime,
+    const unsub = (useTimelineStore.subscribe as any)(
+      (state: any) => state.currentTime,
       (currentTime: number) => {
         const now = Date.now();
         if (now - lastCursorSent.current >= CURSOR_THROTTLE_MS) {

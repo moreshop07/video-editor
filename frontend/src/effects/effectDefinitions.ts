@@ -1,3 +1,5 @@
+import { EffectRegistry } from '@/plugins/registries/EffectRegistry';
+
 export interface EffectDefinition {
   id: string;
   labelKey: string;
@@ -155,5 +157,5 @@ export const effectMap = new Map(
 );
 
 export function getEffectDefinition(id: string): EffectDefinition | undefined {
-  return effectMap.get(id);
+  return EffectRegistry.get(id) ?? effectMap.get(id);
 }

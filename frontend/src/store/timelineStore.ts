@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { subscribeWithSelector } from 'zustand/middleware';
 import { temporal } from 'zundo';
 import type { ClipFilters, TrackAudioSettings, DuckingSettings, DuckingEnvelope } from '@/effects/types';
 import { DEFAULT_CLIP_FILTERS, DEFAULT_DUCKING } from '@/effects/types';
@@ -473,7 +474,7 @@ const genTrackId = () => `track_${++trackCounter}_${Date.now()}`;
 const genClipId = () => `clip_${++clipCounter}_${Date.now()}`;
 
 export const useTimelineStore = create<TimelineState>()(
-  temporal(
+  subscribeWithSelector(temporal(
     (set, get) => ({
       sequences: {} as Record<string, NestedSequence>,
       tracks: [
@@ -1324,5 +1325,5 @@ export const useTimelineStore = create<TimelineState>()(
         // - duration (computed)
       }),
     }
-  )
+  ))
 );

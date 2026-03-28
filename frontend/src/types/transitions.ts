@@ -1,4 +1,4 @@
-export type TransitionType =
+export type BuiltinTransitionType =
   | 'none'
   | 'fade'
   | 'slide-left'
@@ -11,6 +11,9 @@ export type TransitionType =
   | 'wipe-down'
   | 'zoom-in'
   | 'zoom-out';
+
+// Allows plugin-provided transition type strings while preserving autocomplete
+export type TransitionType = BuiltinTransitionType | (string & {});
 
 export interface Transition {
   type: TransitionType;

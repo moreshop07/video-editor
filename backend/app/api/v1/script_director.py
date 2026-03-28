@@ -38,6 +38,7 @@ class GenerateScriptRequest(BaseModel):
     generate_both: bool = Field(True, description="同時產生兩種版本")
     hook_count: int = Field(3, ge=1, le=5, description="鉤子數量")
     target_audience: Optional[str] = Field(None, description="目標受眾")
+    voice_dna: Optional[str] = Field(None, max_length=3000, description="Voice DNA 語氣說明書")
 
 
 class RegenerateHooksRequest(BaseModel):
@@ -84,6 +85,7 @@ async def generate_script(
             generate_both=request.generate_both,
             hook_count=request.hook_count,
             target_audience=request.target_audience,
+            voice_dna=request.voice_dna,
         )
         return await script_director_service.generate_script(svc_request)
     except ValueError as e:

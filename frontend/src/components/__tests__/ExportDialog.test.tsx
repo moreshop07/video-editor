@@ -35,7 +35,7 @@ vi.mock('@/engine/ExportEngine', () => ({
     static isSupported() {
       return true;
     }
-    onProgress: null;
+    onProgress!: null;
     cancel = vi.fn();
     getStatus = vi.fn().mockReturnValue('idle');
     export = vi.fn().mockResolvedValue(new Blob(['test'], { type: 'video/mp4' }));

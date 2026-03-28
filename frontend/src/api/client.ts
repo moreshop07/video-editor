@@ -1,6 +1,6 @@
 import axios, { AxiosProgressEvent } from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/studio/api/v1';
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -20,7 +20,7 @@ apiClient.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
-      window.location.href = '/login';
+      window.location.href = '/studio/login';
     }
     return Promise.reject(error);
   }
@@ -327,6 +327,7 @@ export const scriptDirectorApi = {
     generate_both?: boolean;
     hook_count?: number;
     target_audience?: string;
+    voice_dna?: string;
   }) => apiClient.post('/script-director/generate', data),
 
   regenerateHooks: (data: {

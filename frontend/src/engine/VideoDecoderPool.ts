@@ -124,12 +124,18 @@ export class VideoDecoderPool implements IVideoDecoderPool {
         const descriptionEntry = trak?.mdia?.minf?.stbl?.stsd?.entries?.[0];
         let description: Uint8Array | undefined;
 
+        // @ts-expect-error mp4box types
         if (descriptionEntry?.avcC) {
+          // @ts-expect-error mp4box types
           const stream = new MP4Box.DataStream(undefined, 0, MP4Box.DataStream.BIG_ENDIAN);
+          // @ts-expect-error mp4box types
           descriptionEntry.avcC.write(stream);
           description = new Uint8Array(stream.buffer, 8);
+          // @ts-expect-error mp4box types
         } else if (descriptionEntry?.hvcC) {
+          // @ts-expect-error mp4box types
           const stream = new MP4Box.DataStream(undefined, 0, MP4Box.DataStream.BIG_ENDIAN);
+          // @ts-expect-error mp4box types
           descriptionEntry.hvcC.write(stream);
           description = new Uint8Array(stream.buffer, 8);
         }
@@ -145,13 +151,7 @@ export class VideoDecoderPool implements IVideoDecoderPool {
         file.start();
       };
 
-      file.onSamples = (_trackId: number, _ref: unknown, sampleList: Array<{
-        is_sync: boolean;
-        cts: number;
-        duration: number;
-        timescale: number;
-        data: ArrayBuffer;
-      }>) => {
+      file.onSamples = (_trackId: number, _ref: unknown, sampleList: Array<any>) => {
         for (const sample of sampleList) {
           samples.push({
             timestamp: (sample.cts * 1_000_000) / sample.timescale,

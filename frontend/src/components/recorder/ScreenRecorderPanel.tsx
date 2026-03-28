@@ -182,7 +182,10 @@ export default function ScreenRecorderPanel() {
       duration,
       name: recordedAsset.original_filename || 'Screen Recording',
       type: 'video',
-    });
+      filters: { effects: [], speed: 1, chromaKey: undefined, blendMode: undefined, colorGrading: undefined, curves: undefined },
+      fadeInMs: 0,
+      fadeOutMs: 0,
+    } as Omit<import('@/store/timelineStore').Clip, 'trackId'>);
 
     setRecordedAsset(null);
     setStatus('idle');

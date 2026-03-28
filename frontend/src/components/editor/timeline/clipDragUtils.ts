@@ -1,4 +1,4 @@
-import type { Clip, Track } from '@/store/timelineStore';
+import type { Track } from '@/store/timelineStore';
 
 const TRACK_COMPATIBILITY: Record<string, string[]> = {
   video: ['video'],

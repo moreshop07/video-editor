@@ -97,7 +97,8 @@ export default function TimelineMinimap({ viewportWidth }: TimelineMinimapProps)
     }
 
     // Draw viewport rectangle
-    const contentWidth = Math.max(2000, (totalDuration + 5000) * pxPerMs);
+    // contentWidth used for viewport calculations below
+    void Math.max(2000, (totalDuration + 5000) * pxPerMs);
     const viewStartMs = scrollX / pxPerMs;
     const viewEndMs = viewStartMs + viewportWidth / pxPerMs;
 
