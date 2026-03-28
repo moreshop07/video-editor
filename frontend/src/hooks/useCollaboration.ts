@@ -71,7 +71,7 @@ export function useCollaboration(ws: ProjectWebSocket | null) {
     if (!ws) return;
     const unsub = useTimelineStore.subscribe(
       (state) => state.selectedClipIds,
-      (selectedClipIds) => {
+      (selectedClipIds: Set<string>) => {
         ws.sendSelection(selectedClipIds);
       },
     );
@@ -83,7 +83,7 @@ export function useCollaboration(ws: ProjectWebSocket | null) {
     if (!ws) return;
     const unsub = useTimelineStore.subscribe(
       (state) => state.currentTime,
-      (currentTime) => {
+      (currentTime: number) => {
         const now = Date.now();
         if (now - lastCursorSent.current >= CURSOR_THROTTLE_MS) {
           lastCursorSent.current = now;

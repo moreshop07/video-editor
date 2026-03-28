@@ -220,7 +220,7 @@ export const useSubtitleStore = create<SubtitleStore>()((set, get) => ({
 
   updateTrackStyle: async (trackId: number, style: CaptionStyle) => {
     try {
-      await subtitleApi.updateTrackStyle(trackId, { style });
+      await subtitleApi.updateTrackStyle(trackId, { style: style as unknown as Record<string, unknown> });
       set((state) => ({
         tracks: state.tracks.map((t) =>
           t.id === trackId ? { ...t, style } : t,

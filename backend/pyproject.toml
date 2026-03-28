@@ -19,18 +19,23 @@ dependencies = [
     "openai>=1.57.0",
     "python-jose[cryptography]>=3.3.0",
     "passlib[bcrypt]>=1.7.4",
+    "bcrypt<4.1",
+    "jsonpatch>=1.33",
     "httpx>=0.28.0",
     "websockets>=14.0",
     "yt-dlp>=2024.0.0",
-    "scenedetect[opencv]>=0.6.0",
-    "librosa>=0.10.0",
     "edge-tts>=6.0.0",
     "anthropic>=0.40.0",
-    "auto-editor>=24.0.0",
-    "openai-whisper>=20231117",
+    "requests>=2.31.0",
 ]
 
 [project.optional-dependencies]
+ml = [
+    "scenedetect[opencv]>=0.6.0",
+    "librosa>=0.10.0",
+    "auto-editor>=24.0.0",
+    "openai-whisper>=20231117",
+]
 dev = [
     "pytest>=8.3.0",
     "pytest-asyncio>=0.24.0",

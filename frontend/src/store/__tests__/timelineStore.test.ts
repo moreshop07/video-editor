@@ -195,10 +195,12 @@ describe('timelineStore', () => {
     const state = getState();
     const data = serializeForSave({
       tracks: state.tracks,
+      sequences: state.sequences,
       markers: state.markers,
       zoom: state.zoom,
       scrollX: state.scrollX,
       snapEnabled: state.snapEnabled,
+      canvasBackground: state.canvasBackground,
     });
 
     expect(data.version).toBe(1);

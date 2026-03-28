@@ -43,7 +43,7 @@ export default function EditorPage() {
   // Hydrate timeline store from project_data when project loads
   useEffect(() => {
     if (currentProject?.project_data) {
-      loadFromProjectData(currentProject.project_data as ProjectData);
+      loadFromProjectData(currentProject.project_data as unknown as ProjectData);
     }
   }, [currentProject?.id, loadFromProjectData]);
 

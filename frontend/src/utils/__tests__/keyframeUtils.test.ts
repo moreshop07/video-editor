@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import {
   getInterpolatedValue,
-  getInterpolatedProperties,
+  getInterpolatedProperties as _getInterpolatedProperties,
   setKeyframe,
   removeKeyframe,
   hasKeyframeAt,
-  getKeyframeAt,
+  getKeyframeAt as _getKeyframeAt,
   getAllKeyframeTimes,
   hasKeyframes,
 } from '../keyframeUtils';

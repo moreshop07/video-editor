@@ -17,7 +17,6 @@ import type {
   TrackingMode,
   TrackingROI,
   TrackingPoint,
-  TrackingResult,
   TrackerWorkerMessage,
   TrackerWorkerResponse,
 } from './motionTrackerTypes';

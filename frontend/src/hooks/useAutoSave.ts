@@ -63,7 +63,7 @@ export function useAutoSave(ws: ProjectWebSocket | null) {
         snapEnabled: state.snapEnabled,
         canvasBackground: state.canvasBackground,
       }),
-      (selected) => {
+      (selected: Record<string, unknown>) => {
         const serialized = serializeForSave(selected);
         const hash = simpleHash(JSON.stringify(serialized));
 
@@ -83,7 +83,7 @@ export function useAutoSave(ws: ProjectWebSocket | null) {
           performSave(serialized);
         }, AUTO_SAVE_DEBOUNCE_MS);
       },
-      { equalityFn: (a, b) => JSON.stringify(a) === JSON.stringify(b) },
+      { equalityFn: (a: Record<string, unknown>, b: Record<string, unknown>) => JSON.stringify(a) === JSON.stringify(b) },
     );
 
     return () => {
@@ -96,7 +96,7 @@ export function useAutoSave(ws: ProjectWebSocket | null) {
   useEffect(() => {
     const unsub = useTimelineStore.subscribe(
       (state) => state.isPlaying,
-      (isPlaying) => {
+      (isPlaying: boolean) => {
         if (!isPlaying && debounceTimer.current) {
           // Was playing and had pending changes — save now
           clearTimeout(debounceTimer.current);
