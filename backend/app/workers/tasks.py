@@ -2617,7 +2617,6 @@ def full_pipeline(self, job_id: int) -> dict:
         asset_path = params.get("asset_object_path", "")
         project_id = job.project_id or params.get("project_id")
         language = params.get("language", "zh")
-        target_language = params.get("target_language", "en")
         include_en = params.get("include_english_export", True)
         subtitle_role = params.get("subtitle_role", "main")
         subtitle_tier = params.get("subtitle_tier", "subtitle")

@@ -12,7 +12,6 @@ from __future__ import annotations
 import math
 import os
 from dataclasses import dataclass, field
-from typing import Any
 
 
 # ---------------------------------------------------------------------------
@@ -202,15 +201,15 @@ class SubtitlePreset:
 
         parts = [
             f"text='{escaped}'",
-            f"fontfile=/usr/share/fonts/truetype/noto/NotoSansTC-Bold.ttf",
+            "fontfile=/usr/share/fonts/truetype/noto/NotoSansTC-Bold.ttf",
             f"fontsize={font_size}",
             f"fontcolor={color.color_hex}",
             f"shadowx={self.shadow.shadowx}",
             f"shadowy={self.shadow.shadowy}",
             f"shadowcolor={self.shadow.shadowcolor_ffmpeg}",
-            f"x=(w-text_w)/2",
+            "x=(w-text_w)/2",
             f"y=h-{margin_bottom}-text_h",
-            f"borderw=0",
+            "borderw=0",
         ]
         return ":".join(parts)
 

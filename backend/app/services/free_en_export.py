@@ -24,7 +24,6 @@ import json
 import logging
 import os
 import subprocess
-import tempfile
 import time
 from typing import Any
 
