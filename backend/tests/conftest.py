@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import asyncio
 import os
 from collections.abc import AsyncGenerator
 
-import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -24,48 +22,52 @@ TEST_DATABASE_URL = os.environ.get(
     "postgresql+asyncpg://veditor:veditor_dev_pass@localhost:5432/video_editor_test",
 )
 
-
-# ---------------------------------------------------------------------------
-# Single event loop for the entire test session
-# ---------------------------------------------------------------------------
-@pytest.fixture(scope="session")
-def event_loop():
-    """Create a single event loop shared across all tests."""
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
+# Engine and session factory — created lazily to share the event loop
+_test_engine = None
+_TestSessionLocal = None
 
 
-# Engine must be created inside the session-scoped loop context
-test_engine = create_async_engine(TEST_DATABASE_URL, echo=False)
-TestSessionLocal = async_sessionmaker(
-    bind=test_engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
-)
+def _get_engine():
+    global _test_engine
+    if _test_engine is None:
+        _test_engine = create_async_engine(TEST_DATABASE_URL, echo=False)
+    return _test_engine
+
+
+def _get_session_factory():
+    global _TestSessionLocal
+    if _TestSessionLocal is None:
+        _TestSessionLocal = async_sessionmaker(
+            bind=_get_engine(),
+            class_=AsyncSession,
+            expire_on_commit=False,
+        )
+    return _TestSessionLocal
 
 
 # ---------------------------------------------------------------------------
 # Session-scoped: create / drop all tables once per test session
 # ---------------------------------------------------------------------------
-@pytest_asyncio.fixture(scope="session", autouse=True)
+@pytest_asyncio.fixture(scope="session", autouse=True, loop_scope="session")
 async def setup_database():
     """Create all tables at the start of the test session and drop them at the end."""
-    async with test_engine.begin() as conn:
+    engine = _get_engine()
+    async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield
-    async with test_engine.begin() as conn:
+    async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
-    await test_engine.dispose()
+    await engine.dispose()
 
 
 # ---------------------------------------------------------------------------
 # Per-test: transactional session with rollback
 # ---------------------------------------------------------------------------
-@pytest_asyncio.fixture
+@pytest_asyncio.fixture(loop_scope="session")
 async def db_session() -> AsyncGenerator[AsyncSession, None]:
     """Yield a test database session that rolls back after each test."""
-    async with test_engine.connect() as conn:
+    engine = _get_engine()
+    async with engine.connect() as conn:
         txn = await conn.begin()
         session = AsyncSession(bind=conn, expire_on_commit=False)
         try:
@@ -78,7 +80,7 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
 # ---------------------------------------------------------------------------
 # HTTP test client
 # ---------------------------------------------------------------------------
-@pytest_asyncio.fixture
+@pytest_asyncio.fixture(loop_scope="session")
 async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     """Yield an httpx AsyncClient wired to the FastAPI app with test DB."""
 
@@ -95,7 +97,7 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
 # ---------------------------------------------------------------------------
 # Authenticated client helper
 # ---------------------------------------------------------------------------
-@pytest_asyncio.fixture
+@pytest_asyncio.fixture(loop_scope="session")
 async def authenticated_client(
     client: AsyncClient,
 ) -> AsyncClient:
