@@ -8,12 +8,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
   && rm -rf /var/lib/apt/lists/*
 
-COPY pyproject.toml torch-2.10.0+cpu-cp312-cp312-manylinux_2_28_x86_64.whl ./
-# Install pre-downloaded CPU-only PyTorch
-RUN pip install --no-cache-dir --prefix=/install torch-2.10.0+cpu-cp312-cp312-manylinux_2_28_x86_64.whl
-# Install remaining production dependencies (torch already satisfied)
-ENV PYTHONPATH=/install/lib/python3.12/site-packages
+COPY pyproject.toml ./
+# Install CPU-only PyTorch from official index, then remaining dependencies
 RUN pip install --no-cache-dir --prefix=/install \
+    --timeout 300 --retries 3 \
+    --extra-index-url https://download.pytorch.org/whl/cpu \
+    torch && \
+    PYTHONPATH=/install/lib/python3.12/site-packages \
+    pip install --no-cache-dir --prefix=/install \
     --timeout 300 --retries 3 \
     --extra-index-url https://download.pytorch.org/whl/cpu .
 
@@ -24,13 +26,11 @@ FROM python:3.12-slim-bookworm
 
 WORKDIR /app
 
-# Copy pre-extracted static ffmpeg/ffprobe binaries
-COPY ffmpeg-bin /usr/local/bin/ffmpeg
-COPY ffprobe-bin /usr/local/bin/ffprobe
-
-# Install libpq5 for PostgreSQL client
-RUN apt-get update && apt-get install -y --no-install-recommends libpq5 && \
-    rm -rf /var/lib/apt/lists/*
+# Install ffmpeg and libpq5 for PostgreSQL client
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    libpq5 \
+  && rm -rf /var/lib/apt/lists/*
 
 # Copy installed packages from builder
 COPY --from=builder /install /usr/local
