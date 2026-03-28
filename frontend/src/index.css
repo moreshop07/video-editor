@@ -1,14 +1,27 @@
 @import "tailwindcss";
 
 :root {
-  --bg-primary: #1a1a2e;
-  --bg-secondary: #16213e;
-  --bg-panel: #0f3460;
-  --accent: #e94560;
-  --text-primary: #ffffff;
-  --text-secondary: #a0a0b0;
-  --timeline-bg: #0a0a1a;
-  --track-bg: #1a1a30;
+  /* Moresie brand – dark mode adaptation */
+  --bg-primary: #141E18;
+  --bg-secondary: #1A2B21;
+  --bg-panel: #1E3328;
+  --accent: #B89860;
+  --accent-hover: #D4B87A;
+  --text-primary: #F5F4F0;
+  --text-secondary: #9A998F;
+  --text-tertiary: #7A7974;
+  --timeline-bg: #0F150F;
+  --track-bg: #1A2B21;
+
+  /* Extended palette used by components */
+  --color-primary: #B89860;
+  --color-bg: #141E18;
+  --color-surface: #1A2B21;
+  --color-surface-elevated: #1E3328;
+  --color-surface-hover: #2A4233;
+  --color-border: #2A4233;
+  --color-text: #F5F4F0;
+  --color-text-secondary: #9A998F;
 }
 
 * {
@@ -53,7 +66,7 @@ body,
 }
 
 .clip-block:hover {
-  box-shadow: 0 0 8px rgba(233, 69, 96, 0.4);
+  box-shadow: 0 0 8px rgba(184, 152, 96, 0.4);
 }
 
 .clip-block.selected {
